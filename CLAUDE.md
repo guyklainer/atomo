@@ -14,4 +14,5 @@ If you are instructed to perform Technical Planning for an issue:
 5. Finally, use your `Bash` tool to attach the specification back to the remote repository so downstream agents can prioritize it: `gh issue comment <number> -F docs/plans/TECH_SPEC_<number>.md`
 
 ## Commands
-* **Run Scanner**: `npx tsx triage.ts`
+* **Run Gatekeeper**: `npm run triage` (Cheap/Fast classification of untriaged issues)
+* **Run Architect**: `npm run plan` (Heavy codebase scanning to plan triaged issues)

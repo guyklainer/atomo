@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "triage": "tsx src/triage.ts",
+    "plan": "tsx src/planner.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
