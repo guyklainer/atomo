@@ -35,7 +35,13 @@ Once your classification is complete, use the Bash tool to interact with the rep
 - If Ambiguous: Execute 'gh issue comment <number> --body "🤖 Automated Triage: This issue lacks technical depth. Please clarify your request."' AND 'gh issue edit <number> --add-label needs-triage'
 - If Bug (missingReproSteps=false) / Enhancement / Question: Execute 'gh issue edit <number> --add-label <Classification-Label>'
 
-STEP 4: CLASSIFICATION DECISION
+STEP 4: TECHNICAL PLANNING
+If your classification represents an actionable issue (a Bug with reproduction steps, or an Enhancement/Question with clear scope), you must build an implementation blueprint for the human developer:
+- ZERO-WASTE RULE: You are strictly prohibited from dumping entire files into your brain context simply to understand them. You must preserve token efficiency! Use 'Glob' to find target boundaries and 'Grep' to execute surgical keyword searches. If 'Read' is needed, pinpoint the specific lines.
+- INSTRUCTION: Traverse the local codebase carefully. Locate the exact functions, components, or files that must be modified to satisfy the GitHub issue.
+- OUTPUT: Use the 'Write' tool to generate a document named 'TECH_SPEC_{number}.md' directly into the current directory. It must contain: The root problem, target files identified, and a step-by-step pseudo-code roadmap.
+
+STEP 5: CLASSIFICATION DECISION
 Output a final structured JSON block with your decision:
 {
   "issueNumber": number,
@@ -51,7 +57,8 @@ async function runScanner() {
   const stream = query({
     prompt: SYSTEM_PROMPT,
     options: {
-      model: 'claude-haiku-4-5',
+      cwd: process.env.TARGET_REPO_PATH || process.cwd(),
+      model: 'claude-sonnet-4-5',
       tools: ['Bash', 'Read', 'Write', 'Glob', 'Grep'],
       allowedTools: ['Bash', 'Read', 'Write', 'Glob', 'Grep']
     }
