@@ -35,7 +35,7 @@ Output a small summary block of the files changed in the Tech Spec.
 
 runAgent('Architect', SYSTEM_PROMPT, {
   cwd: process.env.TARGET_REPO_PATH || process.cwd(),
-  model: 'claude-3-5-sonnet-20241022',
+  model: 'claude-sonnet-4-5',
   tools: ['Bash', 'Read', 'Write', 'Glob', 'Grep'],
   allowedTools: ['Bash', 'Read', 'Write', 'Glob', 'Grep']
 }).catch(console.error);

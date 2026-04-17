@@ -40,7 +40,7 @@ Output a final structured JSON block with your decision:
 `;
 
 runAgent('Gatekeeper', SYSTEM_PROMPT, {
-  model: 'claude-3-5-haiku-20241022',
-  tools: ['Bash'],
-  allowedTools: ['Bash']
+   model: 'claude-haiku-4-5',
+   tools: ['Bash'],
+   allowedTools: ['Bash']
 }).catch(console.error);
