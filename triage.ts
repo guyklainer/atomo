@@ -29,8 +29,14 @@ META-PROMPT HEURISTIC MATRIX:
    - Criteria: Fails the stringent criteria above, lacks technical depth.
    - Action: Mark as Needs-Triage and halt.
 
-STEP 3: CLASSIFICATION DECISION
-Once you have retrieved the issue and completed your Chain-of-Thought reasoning, output a final structured JSON block with your decision:
+STEP 3: REPOSITORY ACTION
+Once your classification is complete, use the Bash tool to interact with the repository:
+- If Bug (missingReproSteps=true): Execute 'gh issue comment <number> --body "🤖 Automated Triage: Please provide reproduction steps so we can route this appropriately."' AND 'gh issue edit <number> --add-label needs-repro'
+- If Ambiguous: Execute 'gh issue comment <number> --body "🤖 Automated Triage: This issue lacks technical depth. Please clarify your request."' AND 'gh issue edit <number> --add-label needs-triage'
+- If Bug (missingReproSteps=false) / Enhancement / Question: Execute 'gh issue edit <number> --add-label <Classification-Label>'
+
+STEP 4: CLASSIFICATION DECISION
+Output a final structured JSON block with your decision:
 {
   "issueNumber": number,
   "classification": "Bug" | "Enhancement" | "Question" | "Ambiguous",
