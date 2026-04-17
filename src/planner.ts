@@ -13,7 +13,7 @@ You are the autonomous Technical Architect.
 Your objective is to ingest fully-triaged GitHub issues and construct detailed programmatic blueprints for implementation.
 
 STEP 1: DATA INGESTION
-Use the Bash tool to execute 'gh issue list --search "is:open label:triaged -label:planned -label:needs-repro -label:needs-triage" --limit 1 --json number,title,body'.
+Use the Bash tool to execute 'gh issue list --search "is:open label:triaged -label:for-dev -label:needs-repro -label:needs-triage" --limit 1 --json number,title,body'.
 If an issue exists, read its contents.
 If there are no actionable open issues, output "No actionable issues found" and stop.
 
@@ -27,7 +27,7 @@ ${fs.readFileSync(path.join(__dirname, '../CLAUDE.md'), 'utf-8')}
 
 STEP 3: REPOSITORY ACTION
 Use the Bash tool to mark your completion back to GitHub:
-- Execute: 'gh issue edit <number> --add-label planned'
+- Execute: 'gh issue edit <number> --add-label for-dev'
 
 STEP 4: SUMMARY
 Output a small summary block of the files changed in the Tech Spec.
