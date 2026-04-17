@@ -1,13 +1,49 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import 'dotenv/config';
 
+const SYSTEM_PROMPT = `
+You are the autonomous Issue Triage Gatekeeper.
+Your objective is to ingest open GitHub issues and classify them using strict heuristic guidelines.
+
+STEP 1: DATA INGESTION
+Use the Bash tool to execute 'gh issue list --limit 1 --state open --json number,title,createdAt'.
+If an issue exists, use the Bash tool to execute 'gh issue view <number> --json number,title,body,labels,comments'.
+If there are no open issues, output "No open issues found" and stop.
+
+STEP 2: COGNITIVE ANALYSIS (CHAIN OF THOUGHT)
+Before making any decision, you must document your progressive reasoning step-by-step. 
+Analyze the lexical structure of the issue title and body.
+Identify symptoms, affected domains, and formulate a classification based ONLY on the following matrix:
+
+META-PROMPT HEURISTIC MATRIX:
+1. BUG: 
+   - Criteria: Must contain explicit error messages, stack traces, or deviations from behavior. Keywords: "error", "fail", "crash", "broken".
+   - Action: Apply label. Explicitly check if reproduction steps exist.
+2. ENHANCEMENT: 
+   - Criteria: Requests new functionality or API expansions. Keywords: "feature", "support", "allow", "enable".
+   - Action: Categorize as enhancement.
+3. QUESTION: 
+   - Criteria: Seeks clarification without system failure. Keywords: "how to", "why", "what".
+   - Action: Categorize as question.
+4. AMBIGUOUS:
+   - Criteria: Fails the stringent criteria above, lacks technical depth.
+   - Action: Mark as Needs-Triage and halt.
+
+STEP 3: CLASSIFICATION DECISION
+Once you have retrieved the issue and completed your Chain-of-Thought reasoning, output a final structured JSON block with your decision:
+{
+  "issueNumber": number,
+  "classification": "Bug" | "Enhancement" | "Question" | "Ambiguous",
+  "missingReproSteps": boolean,
+  "reasoningSummary": "Your core rationalization"
+}
+`;
+
 async function runScanner() {
   console.log('Scanner Output: Starting SDK Query Pipeline...');
 
   const stream = query({
-    prompt: "Use the Bash tool to execute 'gh issue list --limit 1 --json number,title,createdAt'. " +
-      "Then, if an issue exists, use the Bash tool to execute 'gh issue view <number> --json number,title,body,labels,comments'. " +
-      "Finally, just output the raw JSON from the last command.",
+    prompt: SYSTEM_PROMPT,
     options: {
       model: 'claude-haiku-4-5',
       tools: ['Bash', 'Read', 'Write', 'Glob', 'Grep'],
@@ -25,10 +61,8 @@ async function runScanner() {
             console.log(`[Tool Call]: Initiating ${block.name}...`);
           }
         }
-      } else if (message.type === 'result' && message.subtype === 'success') {
-        console.log("[Completion]: Success.");
       } else if (message.type === 'result') {
-        console.error("[Completion]: Failed.", message.errors?.join(', ') || message.subtype);
+        console.log("[Completion]: Finished execution.");
       }
     }
   } catch (error) {
