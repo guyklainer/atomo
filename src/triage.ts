@@ -30,17 +30,7 @@ If an issue exists, fetch its full detail:
 If there are no open untriaged issues, skip to FLOW B.
 
 ### STEP A2: COGNITIVE ANALYSIS (CHAIN OF THOUGHT)
-Document your reasoning step-by-step. Identify symptoms and classify based ONLY on the following matrix:
-
-META-PROMPT HEURISTIC MATRIX:
-1. BUG:
-   - Criteria: Must contain explicit error messages, stack traces, or deviations from behavior. Keywords: "error", "fail", "crash", "broken".
-2. ENHANCEMENT:
-   - Criteria: Requests new functionality or API expansions. Keywords: "feature", "support", "allow", "enable".
-3. QUESTION:
-   - Criteria: Seeks clarification without system failure. Keywords: "how to", "why", "what".
-4. AMBIGUOUS:
-   - Criteria: Fails the stringent criteria above, lacks technical depth.
+Document your reasoning step-by-step. Apply the 'Meta-Prompt Heuristic Matrix' defined in the injected CLAUDE.md rules to classify the issue.
 
 ### STEP A3: CONFIDENCE GATE
 Before acting, apply the Confidence Gate Protocol defined in the injected rules below.

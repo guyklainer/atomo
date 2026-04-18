@@ -5,7 +5,7 @@ import { execSync } from 'child_process';
 import { runAgent } from './runner.js';
 import { fileURLToPath } from 'url';
 
-// Fix for __dirname in ESM environments run via TSX
+// Fix for __dirname in ESM environments run via tsx
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -79,18 +79,22 @@ Use the 'Glob' tool to search '.claude/' and '.agents/' directories inside the t
 STEP 4: COGNITIVE SIMULATION (CoT)
 Before editing files, document your implementation plan in your internal context stream. Cross-reference proposed changes against existing system dependencies.
 
-STEP 5: SURGICAL IMPLEMENTATION
-Use your 'Bash', 'Read', and 'Write' tools to surgically implement the logic mandated by the Tech Spec.
+STEP 5: SURGICAL IMPLEMENTATION — TEST-DRIVEN
+INSTRUCTION: You must strictly follow the 'Test-Driven Development Protocol' defined in the injected CLAUDE.md rules above.
+It defines three mandatory phases: Phase 0 (baseline check), Phase 1 (implement + test in parallel), Phase 2 (incremental green after each unit).
+Use 'Bash', 'Read', and 'Write' tools to implement the changes mandated by the Tech Spec.
 
-STEP 6: VERIFICATION & HANDOFF
-1. Use 'Bash' to run verification metrics (e.g., 'npx tsc --noEmit', tests, linters) against your changes.
-2. If verification fails, fix your code.
-3. If it passes, use 'Bash' to:
+STEP 6: FINAL GATE & HANDOFF
+1. Run the complete verification triple one final time:
+       npx tsc --noEmit && npm run lint && npm test
+   ALL THREE must pass simultaneously. A PR with failing tests, lint errors, or TypeScript
+   errors MUST NOT be created. Fix the code and re-run until all three are green.
+2. Once all checks are green, use 'Bash' to:
    - Create a new branch: git checkout -b feat/issue-${targetIssue.number}
    - Stage and commit: git add . && git commit -m "Implement Issue #${targetIssue.number}: ${targetIssue.title}"
-   - Push and create PR: gh pr create --title "Resolve #${targetIssue.number}: ${targetIssue.title}" --body "Resolves #${targetIssue.number}\n\nAutomated PR implementing TECH_SPEC_${targetIssue.number}.md"
+   - Push and create PR: gh pr create --title "Resolve #${targetIssue.number}: ${targetIssue.title}" --body "Resolves #${targetIssue.number}\\n\\nAutomated PR implementing TECH_SPEC_${targetIssue.number}.md"
    - Edit the tracking issue: gh issue edit ${targetIssue.number} --add-label pr-ready --remove-label for-dev
-4. DEPENDENCY CASCADE: Read the body of Issue #${targetIssue.number}. If it contains a line matching "Blocks: #<number>", use Bash to run: 'gh issue edit <number> --remove-label blocked'. This unblocks the next task in the dependency chain.
+3. DEPENDENCY CASCADE: Read the body of Issue #${targetIssue.number}. If it contains a line matching "Blocks: #<number>", use Bash to run: 'gh issue edit <number> --remove-label blocked'. This unblocks the next task in the dependency chain.
 `;
 
 runAgent('DevExecution', SYSTEM_PROMPT, {
