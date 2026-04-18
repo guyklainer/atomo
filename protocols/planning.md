@@ -9,4 +9,6 @@ If you are instructed to perform Technical Planning for an issue:
    - **Confidence (C) [1-5]**: How sure are you about the targeted root cause?
    - **Ease/Effort (E) [1-5]**: How difficult is this implementation blueprint? (Higher = harder, dividing prioritizes quick wins).
 6. Use your `Write` tool to emit a single file named `docs/plans/TECH_SPEC_{number}.md`. Ensure the `docs/plans` directory exists first using Bash if necessary. You MUST prominently prepend the calculated **Priority Score (P)** along with the **I, C, E breakdown** (e.g., `Priority: 6.0 (I=3, C=4, E=2)`) at the top of the document. Include the Root Cause/Requirements, target files, and a step-by-step implementation pseudo-code roadmap.
-7. Finally, use your `Bash` tool to attach the specification back to the remote repository so downstream agents can prioritize it: `gh issue comment <number> -F docs/plans/TECH_SPEC_<number>.md`
+7. **Pattern Discovery**: Before finalizing the pseudo-code roadmap, you MUST use `Grep` to find existing implementations of similar logic in the codebase. Document these patterns in your internal reasoning and ensure the proposed plan is consistent with them.
+8. Finally, use your `Bash` tool to attach the specification back to the remote repository so downstream agents can prioritize it: `gh issue comment <number> -F docs/plans/TECH_SPEC_<number>.md`
+

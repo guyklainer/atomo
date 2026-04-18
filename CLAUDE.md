@@ -20,7 +20,9 @@ For technical details and strict behavior rules, refer to the following:
 - **[Confidence Gate Protocol](file:///Users/guyklainer/Developer/triage-agent/protocols/confidence_gate.md)**: Scored self-evaluation checklists.
 - **[needs-info Protocol](file:///Users/guyklainer/Developer/triage-agent/protocols/reevaluation.md)**: Automated re-entry loop for clarifications.
 - **[Atomic Epic Breakdown](file:///Users/guyklainer/Developer/triage-agent/protocols/epic_breakdown.md)**: Rules for splitting complex issues.
+- **[Atomo Dev Protocol](file:///Users/guyklainer/Developer/triage-agent/protocols/atomo_dev.md)**: Rigid Observe → Align → Execute loop rules.
 - **[TDD Protocol](file:///Users/guyklainer/Developer/triage-agent/protocols/tdd.md)**: Mandatory testing and verification discipline.
+
 
 ---
 

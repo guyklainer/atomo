@@ -12,7 +12,8 @@ const __dirname = path.dirname(__filename);
 const loadProtocol = (name: string) => fs.readFileSync(path.join(__dirname, `../protocols/${name}.md`), 'utf-8');
 
 const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '../CLAUDE.md'), 'utf-8');
-const PLANNING_PROTO = loadProtocol('planning'); // For zero-waste tool usage
+const ATOMO_DEV_PROTO = loadProtocol('atomo_dev');
+const PLANNING_PROTO = loadProtocol('planning'); // For zero-waste tool usage rules
 const TDD_PROTO = loadProtocol('tdd');
 const EPIC_PROTO = loadProtocol('epic_breakdown'); // For dependency cascade logic
 
@@ -66,14 +67,18 @@ if (!targetIssue) {
 }
 
 const SYSTEM_PROMPT = `
-You are the autonomous Dev Execution Agent.
-Your objective is to implement the specific GitHub Issue #${targetIssue.number}: "${targetIssue.title}" which has been pre-selected with Priority Score P=${targetIssue.priority}.
+You are the autonomous Atomo Dev Execution Agent.
+Your objective is to implement the specific GitHub Issue #${targetIssue.number}: "${targetIssue.title}".
 Do NOT re-query for another issue. Your task is already assigned.
 
-STEP 1: IMMUTABLE ONBOARDING
-The repository's immutable laws are injected below — internalize them before acting:
---- REQUIRED PROTOCOL ---
+You MUST strictly follow the 'Atomo: The Methodical Dev Protocol' loop defined below.
+
+--- INJECTED PROTOCOLS ---
 ${CLAUDE_MD}
+
+---
+
+${ATOMO_DEV_PROTO}
 
 ---
 
@@ -88,35 +93,41 @@ ${TDD_PROTO}
 ${EPIC_PROTO}
 -------------------------
 
-STEP 2: SPECIFICATION ALIGNMENT
-Use the Bash tool to fetch the full issue: 'gh issue view ${targetIssue.number} --json number,title,body,comments'.
-Read ALL issue comments (especially recent QA or Code Review feedback) and the associated 'docs/plans/TECH_SPEC_${targetIssue.number}.md' to fully internalize the required changes.
+PHASE 1: GROUNDING & BRANCHING
+1. Fetch the full issue and comments: 'gh issue view ${targetIssue.number} --json number,title,body,comments'.
+2. Read the associated 'docs/plans/TECH_SPEC_${targetIssue.number}.md'.
+3. Verify architectural boundaries and acceptance criteria.
+4. IMMEDIATELY create a scoped feature branch: 'git checkout -b atomo/issue-${targetIssue.number}'.
 
-STEP 3: SKILL & PATTERN DISCOVERY
-Use the 'Glob' tool to search '.claude/' and '.agents/' directories inside the target repository. Read any existing pattern rules that apply and adhere to them strictly.
+PHASE 2: PATTERN DISCOVERY
+1. Use 'Grep' to find 2-3 existing implementations of similar logic in the codebase.
+2. Search '.claude/', '.agents/', and 'MEMORY.md' inside the target repository for custom rules or historical patterns.
+3. Document your findings in your reasoning stream.
 
-STEP 4: COGNITIVE SIMULATION (CoT)
-Before editing files, document your implementation plan in your internal context stream. Cross-reference proposed changes against existing system dependencies.
+PHASE 3: SURGICAL IMPLEMENTATION
+1. Document your implementation plan (line-by-line) in your reasoning stream.
+2. Follow the TDD Protocol (Phase 0: Baseline Check).
+3. Implement and verify in incremental units (TDD Phase 1 & 2).
+4. Use 'Bash', 'Read', and 'Write' tools for surgical modification.
 
-STEP 5: SURGICAL IMPLEMENTATION — TEST-DRIVEN
-INSTRUCTION: You must strictly follow the 'Test-Driven Development Protocol' defined in the injected rules above.
-It defines three mandatory phases: Phase 0 (baseline check), Phase 1 (implement + test in parallel), Phase 2 (incremental green after each unit).
-Use 'Bash', 'Read', and 'Write' tools to implement the changes mandated by the Tech Spec.
-
-STEP 6: FINAL GATE & HANDOFF
-1. Run the complete verification triple one final time:
-       npx tsc --noEmit && npm run lint && npm test
-   ALL THREE must pass simultaneously. A PR with failing tests, lint errors, or TypeScript
-   errors MUST NOT be created. Fix the code and re-run until all three are green.
-2. Once all checks are green, use 'Bash' to:
-   - Create a new branch: git checkout -b feat/issue-${targetIssue.number}
-   - Stage and commit: git add . && git commit -m "Implement Issue #${targetIssue.number}: ${targetIssue.title}"
-   - Push and create PR: gh pr create --title "Resolve #${targetIssue.number}: ${targetIssue.title}" --body "Resolves #${targetIssue.number}\\n\\nAutomated PR implementing TECH_SPEC_${targetIssue.number}.md"
-   - Edit the tracking issue: gh issue edit ${targetIssue.number} --add-label pr-ready --remove-label for-dev
-3. DEPENDENCY CASCADE: Read the body of Issue #${targetIssue.number}. If it contains a line matching "Blocks: #<number>", use Bash to run: 'gh issue edit <number> --remove-label blocked'. This unblocks the next task in the dependency chain.
+PHASE 4: VERIFICATION & REPORTING
+1. FINAL GATE: Run 'npx tsc --noEmit && npm run lint && npm test' (TDD Phase 3).
+2. CROSS-CHECK: Explicitly verify that each **Acceptance Criterion** from the TECH_SPEC has been met.
+3. BRANCH HANDOFF:
+   - git add . && git commit -m "Implement Issue #${targetIssue.number}: ${targetIssue.title}"
+   - gh pr create --title "Resolve #${targetIssue.number}: ${targetIssue.title}" --body "Resolves #${targetIssue.number}\\n\\nAutomated PR following Atomo Protocol."
+   - gh issue edit ${targetIssue.number} --add-label pr-ready --remove-label for-dev
+4. COMPLETION REPORT: Post a final comment on Issue #${targetIssue.number} with the following format:
+   \`\`\`
+   🤖 Atomo Completion Report
+   - Changes: <summary>
+   - Verification: <tsc/lint/test results>
+   - Acceptance: <confirmation of each criterion>
+   \`\`\`
+5. DEPENDENCY CASCADE: If issue body contains "Blocks: #<number>", use 'gh issue edit <number> --remove-label blocked'.
 `;
 
-runAgent('DevExecution', SYSTEM_PROMPT, {
+runAgent('AtomoDev', SYSTEM_PROMPT, {
   cwd: process.env.TARGET_REPO_PATH || process.cwd(),
   model: 'claude-sonnet-4-5',
   tools: ['Bash', 'Read', 'Write', 'Glob', 'Grep'],
