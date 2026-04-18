@@ -33,14 +33,15 @@ The repository is located at `/Users/guyklainer/Developer/triage-agent`. The tar
 We repeatedly resisted the temptation to over-engineer. When choosing a model, we asked: "Does this step actually require expensive reasoning?" The Gatekeeper only classifies strings — it uses `claude-haiku`. The Architect and Dev agents do deep reasoning — they use `claude-sonnet`.
 
 ### 3.2 Progressive Disclosure
-Heavy rules and protocols should **not** be embedded inside the TypeScript system prompt. They make the codebase hard to maintain and cost unnecessary tokens every boot. Instead:
-- All protocol rules live in `CLAUDE.md` at the project root.
-- The TypeScript agents inject `CLAUDE.md` content dynamically at runtime using Node's `fs.readFileSync`.
-- To change how an agent behaves, you edit **only the markdown file**. You never touch the TypeScript.
+Heavy rules and protocols should **not** be embedded inside the TypeScript system prompt or even in a single monolithic file. They make the codebase hard to maintain and cost unnecessary tokens every boot. Instead:
+- Architectural rules and the protocol index live in `CLAUDE.md` at the project root.
+- Technical protocols are modularized into the `protocols/` directory (e.g., `protocols/planning.md`, `protocols/tdd.md`).
+- TypeScript agents load only the specific protocols they need at runtime using `fs.readFileSync`.
+- To change how an agent behaves, you edit **only the relevant markdown file**. You never touch the TypeScript.
 
 This is called the **Progressive Disclosure pattern**: the agent is told "the rules are here" rather than receiving all rules immediately.
 
-> **Critical Discovery:** The `cwd` option shifts the SDK's `Glob/Grep/Read` tools to the target repository (e.g. `q-li`). This means if the agent tries to read `CLAUDE.md` using its tools, it would look inside `q-li` — not `triage-agent`. That is why we physically inject `CLAUDE.md` content at Node.js startup time using `fs.readFileSync(path.join(__dirname, '../CLAUDE.md'))`. This is guaranteed and immutable, regardless of where the agent's tools are pointed.
+> **Critical Discovery:** The `cwd` option shifts the SDK's `Glob/Grep/Read` tools to the target repository (e.g. `q-li`). This means if the agent tries to read `CLAUDE.md` using its tools, it would look inside `q-li` — not `triage-agent`. That is why we physically inject the modular protocol content at Node.js startup time using `fs.readFileSync`. This is guaranteed and immutable, regardless of where the agent's tools are pointed.
 
 ### 3.3 Zero-Waste Codebase Exploration
 Every token in the context window costs money. Forcing an agent to `Read` entire source files is catastrophically wasteful. The Zero-Waste Protocol forces the agent to:

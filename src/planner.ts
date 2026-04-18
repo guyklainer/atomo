@@ -8,7 +8,12 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const loadProtocol = (name: string) => fs.readFileSync(path.join(__dirname, `../protocols/${name}.md`), 'utf-8');
+
 const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '../CLAUDE.md'), 'utf-8');
+const PLANNING_PROTO = loadProtocol('planning');
+const CONFIDENCE_PROTO = loadProtocol('confidence_gate');
+const EPIC_PROTO = loadProtocol('epic_breakdown');
 
 const SYSTEM_PROMPT = `
 You are the autonomous Technical Architect.
@@ -59,6 +64,18 @@ Output a structured summary block:
 
 --- INJECTED PROTOCOL RULES ---
 ${CLAUDE_MD}
+
+---
+
+${PLANNING_PROTO}
+
+---
+
+${CONFIDENCE_PROTO}
+
+---
+
+${EPIC_PROTO}
 -------------------------------
 `;
 

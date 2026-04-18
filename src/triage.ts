@@ -8,7 +8,12 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const loadProtocol = (name: string) => fs.readFileSync(path.join(__dirname, `../protocols/${name}.md`), 'utf-8');
+
 const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '../CLAUDE.md'), 'utf-8');
+const TRIAGE_PROTO = loadProtocol('triage');
+const CONFIDENCE_PROTO = loadProtocol('confidence_gate');
+const REEVALUATION_PROTO = loadProtocol('reevaluation');
 
 const SYSTEM_PROMPT = `
 You are the autonomous Triage Gatekeeper.
@@ -30,7 +35,7 @@ If an issue exists, fetch its full detail:
 If there are no open untriaged issues, skip to FLOW B.
 
 ### STEP A2: COGNITIVE ANALYSIS (CHAIN OF THOUGHT)
-Document your reasoning step-by-step. Apply the 'Meta-Prompt Heuristic Matrix' defined in the injected CLAUDE.md rules to classify the issue.
+Document your reasoning step-by-step. Apply the 'Meta-Prompt Heuristic Matrix' defined in the injected Triage Protocol rules to classify the issue.
 
 ### STEP A3: CONFIDENCE GATE
 Before acting, apply the Confidence Gate Protocol defined in the injected rules below.
@@ -76,6 +81,18 @@ If no needs-info issues exist, output:
 
 ## INJECTED PROTOCOL RULES
 ${CLAUDE_MD}
+
+---
+
+${TRIAGE_PROTO}
+
+---
+
+${CONFIDENCE_PROTO}
+
+---
+
+${REEVALUATION_PROTO}
 `;
 
 runAgent('Gatekeeper', SYSTEM_PROMPT, {

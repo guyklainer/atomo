@@ -9,6 +9,13 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const loadProtocol = (name: string) => fs.readFileSync(path.join(__dirname, `../protocols/${name}.md`), 'utf-8');
+
+const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '../CLAUDE.md'), 'utf-8');
+const PLANNING_PROTO = loadProtocol('planning'); // For zero-waste tool usage
+const TDD_PROTO = loadProtocol('tdd');
+const EPIC_PROTO = loadProtocol('epic_breakdown'); // For dependency cascade logic
+
 // ─────────────────────────────────────────────────────────────────
 // PRIORITIZATION ENGINE: Runs $0 in pure Node.js before the LLM
 // Fetches all actionable `for-dev` issues, parses ICE Priority
@@ -66,7 +73,19 @@ Do NOT re-query for another issue. Your task is already assigned.
 STEP 1: IMMUTABLE ONBOARDING
 The repository's immutable laws are injected below — internalize them before acting:
 --- REQUIRED PROTOCOL ---
-${fs.readFileSync(path.join(__dirname, '../CLAUDE.md'), 'utf-8')}
+${CLAUDE_MD}
+
+---
+
+${PLANNING_PROTO}
+
+---
+
+${TDD_PROTO}
+
+---
+
+${EPIC_PROTO}
 -------------------------
 
 STEP 2: SPECIFICATION ALIGNMENT
@@ -80,7 +99,7 @@ STEP 4: COGNITIVE SIMULATION (CoT)
 Before editing files, document your implementation plan in your internal context stream. Cross-reference proposed changes against existing system dependencies.
 
 STEP 5: SURGICAL IMPLEMENTATION — TEST-DRIVEN
-INSTRUCTION: You must strictly follow the 'Test-Driven Development Protocol' defined in the injected CLAUDE.md rules above.
+INSTRUCTION: You must strictly follow the 'Test-Driven Development Protocol' defined in the injected rules above.
 It defines three mandatory phases: Phase 0 (baseline check), Phase 1 (implement + test in parallel), Phase 2 (incremental green after each unit).
 Use 'Bash', 'Read', and 'Write' tools to implement the changes mandated by the Tech Spec.
 
