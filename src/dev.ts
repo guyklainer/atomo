@@ -44,7 +44,7 @@ function handlePRReviews(): PRReviewResult {
   console.log('[PR REVIEW] Checking open PRs for review feedback...');
 
   const prs: GitHubPR[] = ghTarget(
-    'pr list --search "is:open" --json number,title,headRefName,body,reviews,comments'
+    'pr list --state open --limit 50 --json number,title,headRefName,body,reviews,comments'
   );
 
   // Filter to atomo branches only

@@ -51,7 +51,7 @@ export function gh(command: string, cwd?: string): any {
  * Detect if a human has replied after the last bot comment.
  * Find last comment starting with 🤖, then check for subsequent non-bot comments.
  */
-export function hasHumanReplyAfterBot(comments: GitHubIssue['comments']): boolean {
+export function hasHumanReplyAfterBot(comments: Array<{ body: string; author: { login: string }; createdAt: string }>): boolean {
   if (!comments || comments.length === 0) return false;
 
   let lastBotIndex = -1;
