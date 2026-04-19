@@ -55,6 +55,8 @@ function handlePRReviews(): PRReviewResult {
     return { outcome: 'no-pr-reviews' };
   }
 
+  let lastWaitingPR: number | null = null;
+
   for (const pr of atomoPRs) {
     const issueNumber = extractIssueNumber(pr.headRefName, pr.body);
     if (!issueNumber) {
@@ -86,7 +88,11 @@ function handlePRReviews(): PRReviewResult {
     }
 
     console.log(`[PR REVIEW] PR #${pr.number}: No feedback yet, skipping.`);
-    continue;
+    lastWaitingPR = pr.number;
+  }
+
+  if (lastWaitingPR !== null) {
+    return { outcome: 'waiting-for-review', prNumber: lastWaitingPR };
   }
 
   return { outcome: 'no-pr-reviews' };
