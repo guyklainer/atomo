@@ -76,16 +76,35 @@ export function hasHumanReplyAfterBot(comments: Array<{ body: string; author: { 
 }
 
 /**
- * Check if a PR has inline review comments (code-level comments).
- * These are NOT included in gh --json comments or reviews — only available via REST API.
+ * Check if a PR has inline review comments newer than the last bot PR comment.
+ * Inline review comments are NOT in gh --json comments — only available via REST API.
  */
-export function hasReviewComments(prNumber: number, cwd?: string): boolean {
+export function hasNewReviewComments(prNumber: number, prComments: Array<{ body: string; createdAt: string }>, cwd?: string): boolean {
   try {
+    // Find the timestamp of the last bot PR comment (our "addressed" marker)
+    let lastBotTimestamp: string | null = null;
+    for (let i = prComments.length - 1; i >= 0; i--) {
+      const comment = prComments[i];
+      if (comment && comment.body.trim().startsWith('🤖')) {
+        lastBotTimestamp = comment.createdAt;
+        break;
+      }
+    }
+
+    // Fetch inline review comments via REST API
     const result = execSync(
-      `gh api repos/{owner}/{repo}/pulls/${prNumber}/comments --jq 'length'`,
+      `gh api repos/{owner}/{repo}/pulls/${prNumber}/comments --jq '[.[] | .created_at]'`,
       { encoding: 'utf-8', cwd, stdio: ['pipe', 'pipe', 'pipe'] }
     );
-    return parseInt(result.trim(), 10) > 0;
+    const timestamps: string[] = JSON.parse(result.trim());
+
+    if (timestamps.length === 0) return false;
+
+    // If no bot comment exists yet, any review comment counts as new
+    if (!lastBotTimestamp) return true;
+
+    // Check if any review comment is newer than the last bot response
+    return timestamps.some(t => t > lastBotTimestamp);
   } catch {
     return false;
   }

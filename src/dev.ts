@@ -4,7 +4,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { runAgent } from './runner.js';
 import { fileURLToPath } from 'url';
-import { gh, hasHumanReplyAfterBot, hasReviewComments, extractIssueNumber, type GitHubPR } from './github.js';
+import { gh, hasHumanReplyAfterBot, hasNewReviewComments, extractIssueNumber, type GitHubPR } from './github.js';
 
 // Fix for __dirname in ESM environments run via tsx
 const __filename = fileURLToPath(import.meta.url);
@@ -77,14 +77,14 @@ function handlePRReviews(): PRReviewResult {
 
     const latestReview = getLatestReviewState(pr.reviews);
     const hasCommentFeedback = hasHumanReplyAfterBot(pr.comments);
-    const hasInlineComments = hasReviewComments(pr.number, targetCwd);
+    const hasInlineComments = hasNewReviewComments(pr.number, pr.comments, targetCwd);
 
     // Approved via formal review
     if (latestReview === 'APPROVED') {
       console.log(`[PR REVIEW] PR #${pr.number}: APPROVED → Labeling merged-ready.`);
       ghTarget(`issue edit ${issueNumber} --remove-label pr-ready`);
       ghTarget(`issue edit ${issueNumber} --add-label merged-ready`);
-      ghTarget(`issue comment ${issueNumber} --body "🤖 PR #${pr.number} approved. Ready for merge."`);
+      ghTarget(`pr comment ${pr.number} --body "🤖 PR approved. Ready for merge."`);
       return { outcome: 'approved', prNumber: pr.number, issueNumber };
     }
 
@@ -93,7 +93,8 @@ function handlePRReviews(): PRReviewResult {
       console.log(`[PR REVIEW] PR #${pr.number}: Changes requested → Re-routing to for-dev.`);
       ghTarget(`issue edit ${issueNumber} --remove-label pr-ready`);
       ghTarget(`issue edit ${issueNumber} --add-label for-dev`);
-      ghTarget(`issue comment ${issueNumber} --body "🤖 PR #${pr.number} received review feedback. Re-routing for revision."`);
+      // Post on the PR (not issue) so the 🤖 timestamp marks these comments as "addressed"
+      ghTarget(`pr comment ${pr.number} --body "🤖 Review feedback detected. Re-routing to dev agent for revision."`);
       return { outcome: 'changes-requested', prNumber: pr.number, issueNumber };
     }
 
