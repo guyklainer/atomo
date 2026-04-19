@@ -86,7 +86,7 @@ function handlePRReviews(): PRReviewResult {
     }
 
     console.log(`[PR REVIEW] PR #${pr.number}: No feedback yet, skipping.`);
-    return { outcome: 'waiting-for-review', prNumber: pr.number };
+    continue;
   }
 
   return { outcome: 'no-pr-reviews' };
