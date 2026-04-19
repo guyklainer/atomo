@@ -64,6 +64,15 @@ function handlePRReviews(): PRReviewResult {
       continue;
     }
 
+    // Only process PRs whose issue still has pr-ready label (avoid re-processing)
+    const issue: { labels: Array<{ name: string }> } = ghTarget(
+      `issue view ${issueNumber} --json labels`
+    );
+    if (!issue.labels.some(l => l.name === 'pr-ready')) {
+      console.log(`[PR REVIEW] PR #${pr.number} (Issue #${issueNumber}): Issue not pr-ready, skipping.`);
+      continue;
+    }
+
     console.log(`[PR REVIEW] PR #${pr.number} (Issue #${issueNumber}): Checking feedback...`);
 
     const latestReview = getLatestReviewState(pr.reviews);
