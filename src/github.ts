@@ -13,6 +13,23 @@ export interface GitHubIssue {
   }>;
 }
 
+export interface GitHubPR {
+  number: number;
+  title: string;
+  headRefName: string;
+  body: string;
+  reviews: Array<{
+    state: string;
+    author: { login: string };
+    submittedAt: string;
+  }>;
+  comments: Array<{
+    body: string;
+    author: { login: string };
+    createdAt: string;
+  }>;
+}
+
 /**
  * Execute GitHub CLI command and parse JSON response.
  */
@@ -56,4 +73,18 @@ export function hasHumanReplyAfterBot(comments: GitHubIssue['comments']): boolea
   }
 
   return false;
+}
+
+/**
+ * Extract issue number from a branch name like "atomo/issue-42"
+ * or from a PR body containing "Resolves #42".
+ */
+export function extractIssueNumber(branchName: string, body: string): number | null {
+  const branchMatch = branchName.match(/^atomo\/issue-(\d+)$/);
+  if (branchMatch) return parseInt(branchMatch[1]!, 10);
+
+  const bodyMatch = body?.match(/Resolves\s+#(\d+)/i);
+  if (bodyMatch) return parseInt(bodyMatch[1]!, 10);
+
+  return null;
 }
