@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { runAgent } from './runner.js';
 import { fileURLToPath } from 'url';
+import { gh, hasHumanReplyAfterBot, type GitHubIssue } from './github.js';
 
 // Fix for __dirname in ESM environments run via tsx
 const __filename = fileURLToPath(import.meta.url);
@@ -16,76 +17,149 @@ const PLANNING_PROTO = loadProtocol('planning');
 const CONFIDENCE_PROTO = loadProtocol('confidence_gate');
 const EPIC_PROTO = loadProtocol('epic_breakdown');
 
-const SYSTEM_PROMPT = `
+// ─────────────────────────────────────────────────────────────────
+// Deterministic helpers
+// ─────────────────────────────────────────────────────────────────
+
+const targetCwd = process.env.TARGET_REPO_PATH || process.cwd();
+const ghTarget = (command: string) => gh(command, targetCwd);
+
+/**
+ * Check if the most recent human comment contains "APPROVED" (case-insensitive).
+ */
+function isApproval(comments: GitHubIssue['comments']): boolean {
+  for (let i = comments.length - 1; i >= 0; i--) {
+    const comment = comments[i];
+    if (comment && !comment.body.trim().startsWith('🤖')) {
+      return comment.body.toLowerCase().includes('approved');
+    }
+  }
+  return false;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// REVIEW: Deterministic pre-processing (runs before LLM)
+// ─────────────────────────────────────────────────────────────────
+
+type ReviewResult =
+  | { outcome: 'no-review-issues' }
+  | { outcome: 'waiting-for-reply'; issueNumber: number }
+  | { outcome: 'approved'; issueNumber: number }
+  | { outcome: 'feedback'; issueNumber: number; issue: GitHubIssue };
+
+/**
+ * Run the REVIEW flow deterministically.
+ * - Approvals are handled entirely in code (no LLM needed).
+ * - Feedback issues are returned for LLM processing.
+ */
+function handleReviewIssues(): ReviewResult {
+  console.log('[REVIEW] Checking needs-review issues...');
+
+  const issues = ghTarget(
+    'issue list --search "is:open label:needs-review" --limit 1 --json number,title'
+  );
+
+  if (!issues || issues.length === 0) {
+    console.log('[REVIEW] No needs-review issues found.');
+    return { outcome: 'no-review-issues' };
+  }
+
+  const issue: GitHubIssue = ghTarget(
+    `issue view ${issues[0].number} --json number,title,body,labels,comments`
+  );
+  console.log(`[REVIEW] Processing issue #${issue.number}...`);
+
+  // Check for human reply
+  if (!hasHumanReplyAfterBot(issue.comments)) {
+    console.log(`[REVIEW] Issue #${issue.number}: No human reply yet, skipping.`);
+    return { outcome: 'waiting-for-reply', issueNumber: issue.number };
+  }
+
+  console.log(`[REVIEW] Issue #${issue.number}: Human reply detected.`);
+
+  // Approval — handle entirely in code
+  if (isApproval(issue.comments)) {
+    console.log(`[REVIEW] Issue #${issue.number}: APPROVED → Routing to Dev Agent.`);
+    ghTarget(`issue edit ${issue.number} --remove-label needs-review`);
+    ghTarget(`issue edit ${issue.number} --add-label for-dev`);
+    ghTarget(`issue comment ${issue.number} --body "🤖 Spec approved. Routing to Dev Agent."`);
+    return { outcome: 'approved', issueNumber: issue.number };
+  }
+
+  // Feedback — needs LLM to update the spec
+  console.log(`[REVIEW] Issue #${issue.number}: Feedback detected → Delegating to LLM for spec iteration.`);
+  return { outcome: 'feedback', issueNumber: issue.number, issue };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SYSTEM PROMPTS
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Build a focused prompt for iterating on a spec based on review feedback.
+ */
+function buildReviewPrompt(issue: GitHubIssue): string {
+  return `
+You are the autonomous Technical Architect.
+You are processing REVIEW FEEDBACK for issue #${issue.number}.
+
+A human has left feedback on the tech spec. Your job:
+1. Re-read the existing spec at docs/plans/TECH_SPEC_${issue.number}.md
+2. Read ALL comments on the issue for full context
+3. Identify the requested changes or clarifications from the most recent human feedback
+4. Update TECH_SPEC_${issue.number}.md incorporating the feedback (use Write tool to overwrite)
+5. Post the updated spec as a GitHub comment in this format:
+
+   🤖 **Tech Spec Updated (Review Iteration)**
+
+   [Full updated TECH_SPEC_${issue.number}.md content]
+
+   ---
+
+   Reply "APPROVED" when ready to proceed to implementation, or provide further feedback.
+
+6. Keep the needs-review label (do NOT remove or add any labels)
+
+Use this command to post: gh issue comment ${issue.number} -F docs/plans/TECH_SPEC_${issue.number}.md
+Then append the review iteration footer separately if needed.
+
+Output a summary:
+{
+  "flow": "review",
+  "issueNumber": ${issue.number},
+  "action": "spec-updated-awaiting-re-review",
+  "feedbackAddressed": ["summary of changes made"]
+}
+
+--- ISSUE CONTEXT (pre-fetched) ---
+Title: ${issue.title}
+Body: ${issue.body}
+
+Comments:
+${issue.comments.map(c => `[${c.author.login} @ ${c.createdAt}]: ${c.body}`).join('\n\n')}
+
+--- INJECTED PROTOCOL RULES ---
+${CLAUDE_MD}
+
+---
+
+${REVIEW_PROTO}
+
+---
+
+${PLANNING_PROTO}
+-------------------------------
+`;
+}
+
+const PLANNING_PROMPT = `
 You are the autonomous Technical Architect.
 Your objective is to ingest fully-triaged GitHub issues and construct detailed programmatic blueprints for implementation.
 
-You operate in TWO flows on each run:
-- REVIEW: Process Review Feedback (Iteration Loop) — ALWAYS runs first
-- PLANNING: Process New Triaged Issues (First-Time Planning) — runs ONLY if REVIEW had no actionable reviews
+The REVIEW flow (checking needs-review issues) has already been handled before you run.
+Focus only on PLANNING below.
 
-PRIORITY: Reviews always take precedence over new planning. This ensures human feedback is addressed promptly.
-
---- REVIEW: FEEDBACK LOOP (runs first) ---
-
-STEP 1: QUERY FOR REVIEW ISSUES
-Query: gh issue list --search "is:open label:needs-review" --limit 1 --json number,title,body
-
-If no issues found:
-  Output: { "flow": "review", "action": "skipped-no-review-issues" }
-  Proceed to PLANNING flow.
-
-STEP 2: PROCESS REVIEW ISSUE
-For the issue found:
-
-1. Fetch full detail: gh issue view <number> --json number,title,body,labels,comments
-
-2. Detect human reply using the logic from the Review Protocol:
-   - Find the last comment whose body starts with "🤖"
-   - Check if any subsequent comments exist that do NOT start with "🤖"
-   - If NO human reply: skip this issue (still waiting for feedback)
-   - If YES: proceed to step 3
-
-3. Determine feedback type:
-
-   **CASE 1: APPROVAL**
-   If the most recent human comment contains "APPROVED" (case-insensitive):
-   a. Remove needs-review label: gh issue edit <number> --remove-label needs-review
-   b. Add for-dev label: gh issue edit <number> --add-label for-dev
-   c. Post acknowledgment: gh issue comment <number> -b "🤖 Spec approved. Routing to Dev Agent."
-   d. Output summary:
-      {
-        "flow": "review",
-        "issueNumber": <number>,
-        "action": "approved-routed-to-dev"
-      }
-   e. EXIT
-
-   **CASE 2: FEEDBACK FOR ITERATION**
-   If the human comment contains feedback/questions/change requests:
-   a. Re-read the existing TECH_SPEC_<number>.md
-   b. Re-read the full issue body + ALL comments for context
-   c. Identify the requested changes or clarifications
-   d. Update TECH_SPEC_<number>.md incorporating the feedback (use Write tool to overwrite)
-   e. Post updated spec using the same format as PLANNING STEP 4
-   f. Keep the needs-review label (do NOT remove it)
-   g. Output summary:
-      {
-        "flow": "review",
-        "issueNumber": <number>,
-        "action": "spec-updated-awaiting-re-review",
-        "feedbackAddressed": ["summary of changes made"]
-      }
-   h. EXIT
-
-STEP 3: REVIEW EXIT DECISION
-If the review issue was processed (approval or feedback iteration) in STEP 2:
-  EXIT — do NOT proceed to PLANNING. New planning will happen on the next run after all reviews are handled.
-
-If the review issue was skipped (still waiting for human reply):
-  Proceed to PLANNING flow.
-
---- PLANNING: NEW TRIAGED ISSUES (runs only when no reviews needed attention) ---
+--- PLANNING: NEW TRIAGED ISSUES ---
 
 STEP 1: DATA INGESTION
 Query: gh issue list --search "is:open label:triaged -label:for-dev -label:needs-review -label:needs-info" --limit 1 --json number,title,body
@@ -190,9 +264,51 @@ ${EPIC_PROTO}
 -------------------------------
 `;
 
-runAgent('Architect', SYSTEM_PROMPT, {
+// ─────────────────────────────────────────────────────────────────
+// MAIN EXECUTION: Run REVIEW (deterministic), then PLANNING (LLM)
+// ─────────────────────────────────────────────────────────────────
+
+const agentOptions = {
   cwd: process.env.TARGET_REPO_PATH || process.cwd(),
-  model: 'claude-sonnet-4-5',
+  model: 'claude-sonnet-4-5' as const,
   tools: ['Bash', 'Read', 'Write', 'Glob', 'Grep'],
   allowedTools: ['Bash', 'Read', 'Write', 'Glob', 'Grep']
-}).catch(console.error);
+};
+
+(async () => {
+  // Step 1: Deterministic review pre-processing
+  let reviewResult: ReviewResult;
+  try {
+    reviewResult = handleReviewIssues();
+  } catch (error) {
+    console.error('[REVIEW] Error during review handling:', error);
+    // Fall through to PLANNING if review check fails
+    reviewResult = { outcome: 'no-review-issues' };
+  }
+
+  // Step 2: Route based on review result
+  switch (reviewResult.outcome) {
+    case 'approved':
+      // Handled entirely in code — done
+      console.log(`[REVIEW] Issue #${reviewResult.issueNumber} approved and routed. Exiting.`);
+      return;
+
+    case 'feedback':
+      // Needs LLM to iterate on spec — skip PLANNING
+      console.log(`[REVIEW] Invoking LLM for spec iteration on issue #${reviewResult.issueNumber}...`);
+      await runAgent('Architect (Review)', buildReviewPrompt(reviewResult.issue), agentOptions);
+      return;
+
+    case 'waiting-for-reply':
+      // No actionable reviews — fall through to PLANNING
+      console.log(`[REVIEW] Issue #${reviewResult.issueNumber} waiting for reply. Proceeding to PLANNING.`);
+      break;
+
+    case 'no-review-issues':
+      // No review issues at all — fall through to PLANNING
+      break;
+  }
+
+  // Step 3: PLANNING flow (only reached when no reviews needed attention)
+  await runAgent('Architect (Planning)', PLANNING_PROMPT, agentOptions);
+})().catch(console.error);

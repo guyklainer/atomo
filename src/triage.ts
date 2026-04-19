@@ -1,9 +1,9 @@
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
 import { runAgent } from './runner.js';
 import { fileURLToPath } from 'url';
+import { gh, hasHumanReplyAfterBot, type GitHubIssue } from './github.js';
 
 // Fix for __dirname in ESM environments run via tsx
 const __filename = fileURLToPath(import.meta.url);
@@ -19,70 +19,6 @@ const REEVALUATION_PROTO = loadProtocol('reevaluation');
 // ─────────────────────────────────────────────────────────────────
 // FLOW B: DETERMINISTIC PRE-PROCESSING (runs before LLM invocation)
 // ─────────────────────────────────────────────────────────────────
-
-// Type definitions for GitHub CLI responses
-interface GitHubIssue {
-  number: number;
-  title: string;
-  createdAt?: string;
-  body: string;
-  labels: Array<{ name: string }>;
-  comments: Array<{
-    body: string;
-    author: { login: string };
-    createdAt: string;
-  }>;
-}
-
-/**
- * Execute GitHub CLI command and parse JSON response
- */
-function gh(command: string): any {
-  try {
-    const result = execSync(`gh ${command}`, {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'inherit'] // Inherit stderr for visibility
-    });
-    return command.includes('--json') ? JSON.parse(result) : result;
-  } catch (error) {
-    console.error(`[GH CLI Error]: ${command}`, error);
-    throw error;
-  }
-}
-
-/**
- * Detect if a human has replied after the last bot comment
- * Per reevaluation protocol: Find last comment starting with 🤖,
- * then check if any subsequent comments exist that don't start with 🤖
- */
-function hasHumanReplyAfterBot(comments: GitHubIssue['comments']): boolean {
-  if (!comments || comments.length === 0) return false;
-
-  // Scan in reverse to find last bot comment
-  let lastBotIndex = -1;
-  for (let i = comments.length - 1; i >= 0; i--) {
-    const comment = comments[i];
-    if (comment && comment.body.trim().startsWith('🤖')) {
-      lastBotIndex = i;
-      break;
-    }
-  }
-
-  // If no bot comment found, any comment counts as human reply
-  if (lastBotIndex === -1) {
-    return comments.length > 0;
-  }
-
-  // Check if there are comments after the last bot comment
-  for (let i = lastBotIndex + 1; i < comments.length; i++) {
-    const comment = comments[i];
-    if (comment && !comment.body.trim().startsWith('🤖')) {
-      return true;
-    }
-  }
-
-  return false;
-}
 
 /**
  * Determine which agent paused this issue based on labels
