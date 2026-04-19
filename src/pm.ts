@@ -189,10 +189,17 @@ STEP 3: EXTERNAL MARKET RESEARCH
     - Post-MVP: Integrate with web search API or industry reports
 
 3.2 Domain-Specific Market Analysis (using internal reasoning):
-    - Based on domain from STEP 2, apply industry knowledge:
-      * If domain is "task management": Consider Asana, Notion, Linear patterns
-      * If domain is "autonomous agents": Consider AutoGPT, LangChain, CrewAI features
-      * If domain is "developer tools": Consider GitHub Copilot, Cursor, industry trends
+    - Based on the domain identified in STEP 2, apply your general industry knowledge
+    - Identify 3-5 leading products, competitors, or successful projects in that specific domain
+    - Analyze what patterns, features, or capabilities make them industry leaders
+    - Ask: "What would users in this domain expect from a mature product?"
+    - Note: Examples below illustrate the approach for ANY domain:
+      * If domain is task management: Consider patterns from Asana, Notion, Linear
+      * If domain is autonomous agents: Consider AutoGPT, LangChain, CrewAI approaches
+      * If domain is developer tools: Consider GitHub Copilot, Cursor feature sets
+      * If domain is e-commerce: Consider Shopify, WooCommerce capabilities
+      * If domain is analytics: Consider Mixpanel, Amplitude patterns
+      * [Any other domain]: Research and apply relevant competitive landscape knowledge
 
 3.3 Competitor Feature Analysis (reasoning-based):
     - Question: "What do leading products in [domain] offer that this doesn't?"
@@ -200,9 +207,13 @@ STEP 3: EXTERNAL MARKET RESEARCH
     - Question: "What adjacent domains could inform innovation here?"
 
 3.4 Industry Trend Synthesis:
-    - Identify: 2-3 macro trends relevant to this domain
-    - Example: "Autonomous agents moving toward multi-agent collaboration"
-    - Example: "Developer tools emphasizing context awareness and memory"
+    - Identify: 2-3 macro trends relevant to the discovered domain
+    - Consider: What's emerging in this space? What are users demanding more of?
+    - Examples (illustrative only - adapt to actual domain):
+      * Autonomous agents: Multi-agent collaboration, memory/context persistence
+      * Developer tools: Context awareness, AI-native workflows
+      * Task management: Async-first features, AI-powered prioritization
+      * [Adapt based on actual domain discovered in STEP 2]
 
 3.5 Update external_research.md (timestamped entries, keep last 5):
     - Append new research with: ## Research - [Date]
