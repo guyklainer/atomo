@@ -4,10 +4,93 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { runAgent } from './runner.js';
 import { fileURLToPath } from 'url';
+import { gh, hasHumanReplyAfterBot, extractIssueNumber, type GitHubPR } from './github.js';
 
 // Fix for __dirname in ESM environments run via tsx
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// ─────────────────────────────────────────────────────────────────
+// PR REVIEW: Deterministic pre-processing (runs before LLM)
+// Checks open PRs for reviewer feedback and routes label changes.
+// ─────────────────────────────────────────────────────────────────
+
+const targetCwd = process.env.TARGET_REPO_PATH || process.cwd();
+const ghTarget = (command: string) => gh(command, targetCwd);
+
+type PRReviewResult =
+  | { outcome: 'no-pr-reviews' }
+  | { outcome: 'waiting-for-review'; prNumber: number }
+  | { outcome: 'approved'; prNumber: number; issueNumber: number }
+  | { outcome: 'changes-requested'; prNumber: number; issueNumber: number };
+
+/**
+ * Check the latest formal review state on a PR.
+ * Returns 'APPROVED', 'CHANGES_REQUESTED', 'COMMENTED', or null.
+ */
+function getLatestReviewState(reviews: GitHubPR['reviews']): string | null {
+  if (!reviews || reviews.length === 0) return null;
+  // Reviews are chronological; take the last one
+  return reviews[reviews.length - 1]!.state;
+}
+
+/**
+ * Deterministic PR review handler.
+ * - Approved PRs: label issue `merged-ready`, remove `pr-ready`
+ * - Changes requested: remove `pr-ready`, add back `for-dev`
+ * - No feedback: skip
+ */
+function handlePRReviews(): PRReviewResult {
+  console.log('[PR REVIEW] Checking open PRs for review feedback...');
+
+  const prs: GitHubPR[] = ghTarget(
+    'pr list --search "is:open" --json number,title,headRefName,body,reviews,comments'
+  );
+
+  // Filter to atomo branches only
+  const atomoPRs = prs.filter(pr => pr.headRefName.startsWith('atomo/issue-'));
+
+  if (atomoPRs.length === 0) {
+    console.log('[PR REVIEW] No open atomo PRs found.');
+    return { outcome: 'no-pr-reviews' };
+  }
+
+  for (const pr of atomoPRs) {
+    const issueNumber = extractIssueNumber(pr.headRefName, pr.body);
+    if (!issueNumber) {
+      console.log(`[PR REVIEW] PR #${pr.number}: Could not extract issue number, skipping.`);
+      continue;
+    }
+
+    console.log(`[PR REVIEW] PR #${pr.number} (Issue #${issueNumber}): Checking feedback...`);
+
+    const latestReview = getLatestReviewState(pr.reviews);
+    const hasCommentFeedback = hasHumanReplyAfterBot(pr.comments);
+
+    // Approved via formal review
+    if (latestReview === 'APPROVED') {
+      console.log(`[PR REVIEW] PR #${pr.number}: APPROVED → Labeling merged-ready.`);
+      ghTarget(`issue edit ${issueNumber} --remove-label pr-ready`);
+      ghTarget(`issue edit ${issueNumber} --add-label merged-ready`);
+      ghTarget(`issue comment ${issueNumber} --body "🤖 PR #${pr.number} approved. Ready for merge."`);
+      return { outcome: 'approved', prNumber: pr.number, issueNumber };
+    }
+
+    // Changes requested via formal review OR human comment feedback
+    if (latestReview === 'CHANGES_REQUESTED' || hasCommentFeedback) {
+      console.log(`[PR REVIEW] PR #${pr.number}: Changes requested → Re-routing to for-dev.`);
+      ghTarget(`issue edit ${issueNumber} --remove-label pr-ready`);
+      ghTarget(`issue edit ${issueNumber} --add-label for-dev`);
+      ghTarget(`issue comment ${issueNumber} --body "🤖 PR #${pr.number} received review feedback. Re-routing for revision."`);
+      return { outcome: 'changes-requested', prNumber: pr.number, issueNumber };
+    }
+
+    console.log(`[PR REVIEW] PR #${pr.number}: No feedback yet, skipping.`);
+    return { outcome: 'waiting-for-review', prNumber: pr.number };
+  }
+
+  return { outcome: 'no-pr-reviews' };
+}
 
 const loadProtocol = (name: string) => fs.readFileSync(path.join(__dirname, `../protocols/${name}.md`), 'utf-8');
 
