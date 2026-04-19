@@ -76,6 +76,22 @@ export function hasHumanReplyAfterBot(comments: Array<{ body: string; author: { 
 }
 
 /**
+ * Check if a PR has inline review comments (code-level comments).
+ * These are NOT included in gh --json comments or reviews — only available via REST API.
+ */
+export function hasReviewComments(prNumber: number, cwd?: string): boolean {
+  try {
+    const result = execSync(
+      `gh api repos/{owner}/{repo}/pulls/${prNumber}/comments --jq 'length'`,
+      { encoding: 'utf-8', cwd, stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+    return parseInt(result.trim(), 10) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Extract issue number from a branch name like "atomo/issue-42"
  * or from a PR body containing "Resolves #42".
  */

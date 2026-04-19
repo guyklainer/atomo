@@ -4,7 +4,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { runAgent } from './runner.js';
 import { fileURLToPath } from 'url';
-import { gh, hasHumanReplyAfterBot, extractIssueNumber, type GitHubPR } from './github.js';
+import { gh, hasHumanReplyAfterBot, hasReviewComments, extractIssueNumber, type GitHubPR } from './github.js';
 
 // Fix for __dirname in ESM environments run via tsx
 const __filename = fileURLToPath(import.meta.url);
@@ -77,6 +77,7 @@ function handlePRReviews(): PRReviewResult {
 
     const latestReview = getLatestReviewState(pr.reviews);
     const hasCommentFeedback = hasHumanReplyAfterBot(pr.comments);
+    const hasInlineComments = hasReviewComments(pr.number, targetCwd);
 
     // Approved via formal review
     if (latestReview === 'APPROVED') {
@@ -87,8 +88,8 @@ function handlePRReviews(): PRReviewResult {
       return { outcome: 'approved', prNumber: pr.number, issueNumber };
     }
 
-    // Changes requested via formal review OR human comment feedback
-    if (latestReview === 'CHANGES_REQUESTED' || hasCommentFeedback) {
+    // Changes requested via formal review, human comment, or inline review comments
+    if (latestReview === 'CHANGES_REQUESTED' || hasCommentFeedback || hasInlineComments) {
       console.log(`[PR REVIEW] PR #${pr.number}: Changes requested → Re-routing to for-dev.`);
       ghTarget(`issue edit ${issueNumber} --remove-label pr-ready`);
       ghTarget(`issue edit ${issueNumber} --add-label for-dev`);
