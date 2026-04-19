@@ -130,7 +130,10 @@ Document your reasoning step-by-step. Apply the 'Meta-Prompt Heuristic Matrix' d
 
 ### STEP A3: CONFIDENCE GATE
 Before acting, apply the Confidence Gate Protocol defined in the injected rules below.
-Calculate your confidence score. If score < 85, do NOT label the issue — instead post a needs-info comment and label needs-info.
+Calculate your confidence score. If score < 85:
+- Post a needs-info comment and add ONLY the 'needs-info' label (do NOT add 'triaged').
+- Do NOT proceed to STEP A4.
+- This ensures FLOW B can detect Gatekeeper Re-Entry and FLOW A will re-process the issue after clarification.
 
 ### STEP A4: REPOSITORY ACTION (only if confidence >= 85)
 Use the Bash tool to interact with the repository:
