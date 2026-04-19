@@ -142,14 +142,43 @@ function pickHighestPriorityIssue(): GitHubIssue | null {
   }
 }
 
-const targetIssue = pickHighestPriorityIssue();
+(async () => {
+  // Step 1: Deterministic PR review pre-processing
+  let reviewResult: PRReviewResult;
+  try {
+    reviewResult = handlePRReviews();
+  } catch (error) {
+    console.error('[PR REVIEW] Error during PR review handling:', error);
+    reviewResult = { outcome: 'no-pr-reviews' };
+  }
 
-if (!targetIssue) {
-  console.log('[Orchestrator] No actionable for-dev issues found. Exiting.');
-  process.exit(0);
-}
+  // Step 2: Route based on review result
+  switch (reviewResult.outcome) {
+    case 'approved':
+      console.log(`[PR REVIEW] PR #${reviewResult.prNumber} approved (Issue #${reviewResult.issueNumber}). Exiting.`);
+      return;
 
-const SYSTEM_PROMPT = `
+    case 'changes-requested':
+      console.log(`[PR REVIEW] PR #${reviewResult.prNumber} needs changes (Issue #${reviewResult.issueNumber}). Re-labeled for-dev. Exiting.`);
+      return;
+
+    case 'waiting-for-review':
+      console.log(`[PR REVIEW] PR #${reviewResult.prNumber} waiting for review. Proceeding to new issues.`);
+      break;
+
+    case 'no-pr-reviews':
+      break;
+  }
+
+  // Step 3: Pick highest priority issue and run LLM (existing logic)
+  const targetIssue = pickHighestPriorityIssue();
+
+  if (!targetIssue) {
+    console.log('[Orchestrator] No actionable for-dev issues found. Exiting.');
+    return;
+  }
+
+  const SYSTEM_PROMPT = `
 You are the autonomous Atomo Dev Execution Agent.
 Your objective is to implement the specific GitHub Issue #${targetIssue.number}: "${targetIssue.title}".
 Do NOT re-query for another issue. Your task is already assigned.
@@ -210,9 +239,10 @@ PHASE 4: VERIFICATION & REPORTING
 5. DEPENDENCY CASCADE: If issue body contains "Blocks: #<number>", use 'gh issue edit <number> --remove-label blocked'.
 `;
 
-runAgent('AtomoDev', SYSTEM_PROMPT, {
-  cwd: process.env.TARGET_REPO_PATH || process.cwd(),
-  model: 'claude-sonnet-4-5',
-  tools: ['Bash', 'Read', 'Write', 'Glob', 'Grep'],
-  allowedTools: ['Bash', 'Read', 'Write', 'Glob', 'Grep']
-}).catch(console.error);
+  await runAgent('AtomoDev', SYSTEM_PROMPT, {
+    cwd: targetCwd,
+    model: 'claude-sonnet-4-5',
+    tools: ['Bash', 'Read', 'Write', 'Glob', 'Grep'],
+    allowedTools: ['Bash', 'Read', 'Write', 'Glob', 'Grep']
+  });
+})().catch(console.error);
