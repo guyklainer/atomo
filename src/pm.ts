@@ -28,6 +28,7 @@ CRITICAL:
 - Track previous ideas to avoid repetition (check open + closed issues AND PRs)
 - Use modular context files (load only what's relevant)
 - Incorporate external knowledge to inform market expertise
+- Create GitHub issues for each proposal for easy tracking and review
 
 --- INJECTED CONTEXT ---
 ${CLAUDE_MD}
@@ -146,6 +147,7 @@ STEP 1: LOAD EXISTING CONTEXT (Smart Loading)
     - Bash: gh issue list --search 'is:open' --limit 50 --json title,number,labels,body
     - Bash: gh pr list --state all --limit 50 --json title,number,state,body
     - Build exclusion list: titles/keywords already covered
+    - IMPORTANT: Closed issues mean the user deemed them "not relevant" - do NOT recreate similar proposals
 
 1.4 Check if ROADMAP.md exists:
     - Bash: test -f ROADMAP.md && cat ROADMAP.md || echo "No existing roadmap"
@@ -296,8 +298,8 @@ STEP 7: IDEA GENERATION (Propose new features)
 7.3 Deduplication Check (ENHANCED):
     - Compare against: Previous ROADMAP.md items (from STEP 1.4)
     - Compare against: proposal_archive.md (from STEP 1.2)
-    - Compare against: Closed issues (from STEP 1.3)
-    - Compare against: Open issues (from STEP 1.3)
+    - Compare against: Closed issues (from STEP 1.3) - CRITICAL: Skip if similar feature was closed by user
+    - Compare against: Open issues (from STEP 1.3) - Skip if already exists as open issue
     - Compare against: Open/closed PRs (from STEP 1.3)
     - Action: Skip if already proposed/implemented; refine if similar but evolved
 
@@ -391,6 +393,52 @@ STEP 9: GENERATE ROADMAP.MD
 
 ---
 
+STEP 9.5: CREATE GITHUB ISSUES FOR PROPOSALS
+
+IMPORTANT: For each feature proposal generated in STEP 7, create a GitHub issue so the user can track, review, and accept/reject them individually.
+
+9.5.1 For each proposal (High, Medium, Low priority across all categories):
+    - Extract: Feature title, rationale, impact, market context, priority, category
+
+    - Construct issue body (use HEREDOC for proper formatting):
+      \`\`\`
+      **Priority**: [High/Medium/Low]
+      **Category**: [Core Logic/API/Docs/DX]
+
+      ## Rationale
+      [Why this matters for PMF]
+
+      ## Impact
+      [Who benefits and how]
+
+      ## Market Context
+      [Competitor/industry reference]
+
+      ---
+
+      *Proposed by: Atomo PM Agent*
+      *Generated: [timestamp]*
+      \`\`\`
+
+    - Create issue using Bash:
+      \`\`\`bash
+      gh issue create --title "feat: [Feature Title]" --body "$(cat <<'EOF'
+      [constructed body from above]
+      EOF
+      )" --label "pm-proposal"
+      \`\`\`
+
+    - Track: Parse the output to extract the created issue number (format: "https://github.com/owner/repo/issues/123")
+    - Store: Keep array of created issue numbers for STEP 10 output
+
+9.5.2 User Workflow Notes:
+    - User will review issues manually
+    - If user closes an issue → "not relevant" → agent will NOT recreate it (STEP 1.3 + 7.3 deduplication)
+    - If user keeps issue open → can be triaged/planned/implemented by other agents
+    - User can edit issue body to add details or adjust priority
+
+---
+
 STEP 10: OUTPUT SUMMARY
 
 Output JSON to console:
@@ -417,7 +465,8 @@ Output JSON to console:
   },
   "outputs": {
     "roadmap": "ROADMAP.md",
-    "contextDir": "pm_context/"
+    "contextDir": "pm_context/",
+    "issuesCreated": [1234, 1235, 1236]
   }
 }
 \`\`\`
