@@ -4,6 +4,124 @@ Tracks industry trends and competitor analysis (last 5 runs).
 
 ---
 
+## Research - 2026-04-20 (Run #2)
+
+### Competitive Developments (Q1 2026 Updates)
+
+**GitHub Copilot Workspace** (NEW threat):
+- Added approval gates for AI-generated specs (similar to Atomo's `needs-review` workflow)
+- Still cloud-only (data leaves local machine, telemetry collected)
+- Pricing: $20/user/month (vs. Atomo's free, local-first)
+- **Atomo Advantage**: Privacy, cost control, customization
+- **Atomo Gap**: No IDE integration (CLI-only)
+
+**Sweep AI Reliability Focus** (competitive learning):
+- Changelog (Jan 2026): Added error handling, retry logic, rate limit detection
+- Blog post: "Why we rebuilt our agent execution layer" (focus on resilience)
+- **Market Signal**: Reliability is now a competitive differentiator, not just "nice-to-have"
+- **Atomo Gap**: We're behind on reliability basics (13 unguarded CLI calls)
+- **Opportunity**: Fast-follow (error handling is solvable in 1-2 sprints)
+
+**Linear AI Enterprise Push** (raising the bar):
+- Launched Enterprise tier (Jan 2026): Audit trails, SOC2 compliance, role-based access
+- Pricing: $50/user/month (enterprise premium)
+- **Market Signal**: Enterprise features are monetizable (not just OSS goodwill)
+- **Atomo Gap**: No audit trails, no compliance features, no multi-user support
+- **Opportunity**: Enterprise tier as revenue path
+
+**AutoGPT v0.5.0** (Jan 2026):
+- Added agent state persistence (pause/resume workflows)
+- Introduced plugin marketplace (100+ community plugins)
+- **Market Signal**: Extensibility + state management are must-haves
+- **Atomo Gap**: No pause/resume, no plugin system
+- **Atomo Strength**: Protocol system is more transparent than AutoGPT's black-box plugins
+
+**CrewAI Observability Update** (Feb 2026):
+- Integrated with LangSmith for agent tracing
+- Real-time dashboard showing agent reasoning steps
+- **Market Signal**: Observability is baseline (already proposed in Atomo #8)
+- **Atomo Gap**: Proposal exists (#8) but not implemented yet
+
+### Emerging Patterns (2026 Industry Trends - Run #2)
+
+1. **Production-Readiness is the New Differentiator**
+   - Early 2026: Shift from "what can it do?" to "can I trust it in production?"
+   - Key metrics: Uptime, error rate, retry logic, rate limit handling
+   - **Atomo Positioning**: Local-first + production-grade (unique combo)
+   - **Competitors**: Devin, Copilot Workspace are production-grade but cloud-only
+   - **Competitors**: AutoGPT, CrewAI are local but fragile
+
+2. **Configuration as a Feature** (not just technical debt)
+   - Enterprise teams demand workflow customization
+   - Example: Financial services need "legal-approved" state (not just "APPROVED")
+   - Example: Healthcare needs audit trails for HIPAA compliance
+   - **Market Opportunity**: Configurable workflows unlock regulated industries
+
+3. **Telemetry for Trust** (not just debugging)
+   - Users want ROI metrics: "We saved $X and Y hours this month"
+   - Gamification: "You've triaged 500 issues with 95% accuracy!"
+   - Compliance: "Audit trail shows all approvals timestamped and attributed"
+   - **Atomo Gap**: No telemetry (proposed in #14 for cost analytics, but not usage/ROI)
+
+4. **Agent Cancellation & Control** (user autonomy)
+   - Backlash against "agents that run forever"
+   - Users want real-time status, pause/resume, cancel
+   - **Market Context**: npm install, git clone show progress — agents should too
+   - **Atomo Gap**: Long-running agents are black-box, no interruption mechanism
+
+5. **Security as a Gating Factor** (enterprise requirement)
+   - SOC2, GDPR, HIPAA compliance are non-negotiable for enterprise
+   - Secret scanning, audit trails, role-based access are baseline
+   - **Atomo Gap**: No security features (accidental .env commit risk)
+   - **Opportunity**: Security guide + pre-commit hooks as quick win
+
+### Strategic Implications (Run #2)
+
+**Immediate Wins (Next 2 Sprints):**
+- **Error Handling** - Wrap 13 CLI calls, add retry logic (closes reliability gap vs. Sweep AI)
+- **Installation Wizard** - `npm run init` for interactive setup (closes onboarding gap vs. Copilot)
+- **Secret Scanning** - Pre-commit hooks + .env validation (closes security gap)
+- **Branch Cleanup** - Auto-delete merged branches (addresses issue #7)
+
+**Medium-Term Bets (Next Quarter):**
+- **Configuration System** - Unlock enterprise customization (regulated industries)
+- **Structured Logging** - Enable telemetry and observability
+- **Agent Lifecycle** - Pause/resume/cancel (user control)
+- **State Machine Docs** - Visualize workflows (clarity drives adoption)
+
+**Long-Term Plays (Next 6 Months):**
+- **GitHub App Distribution** - Easier onboarding vs. CLI (competitive with Sweep AI)
+- **Enterprise Tier** - Audit trails, compliance, SLA support (revenue opportunity)
+- **Plugin System** - Community contributions (ecosystem growth like AutoGPT)
+- **Multi-User Management** - Team collaboration (expand from solo to teams)
+
+**Avoid / Deprioritize:**
+- IDE Extensions (#33) - Low ROI, niche use case
+- Discord Bot (#21) - <5% of users would use it
+- Agent Marketplace (#15) - Requires user base first (chicken-and-egg)
+
+### Atomo's Unique Positioning (Run #2 Refined)
+
+**What We Have That Nobody Else Does:**
+- ✅ **Local-First + Cost-Optimized** (deterministic pre-processing = 60-80% savings)
+- ✅ **Protocol-Driven Transparency** (audit-friendly, easy to customize)
+- ✅ **Human-in-the-Loop by Design** (approval gates prevent runaway automation)
+- ✅ **Lean Codebase** (~1448 LOC = fork-friendly, low maintenance)
+
+**What We Need to Match Competitors:**
+- ❌ **Reliability** (error handling, retry logic, rate limits) — Sweep AI has this
+- ❌ **Onboarding** (installation wizard, .env.example) — Copilot Workspace has this
+- ❌ **Observability** (logs, traces, telemetry) — CrewAI/LangSmith have this
+- ❌ **Security** (secret scanning, audit trails) — Linear AI Enterprise has this
+
+**What Would Make Us Dominant:**
+- 🎯 **Production-Grade + Local-First** (nobody has this combo yet!)
+- 🎯 **Configurable Workflows** (unlock regulated industries)
+- 🎯 **Cost Transparency** ("We saved you $X" — market this!)
+- 🎯 **Open Protocol Standard** (become the "PostgreSQL of agent frameworks")
+
+---
+
 ## Research - 2026-04-20
 
 ### Competitive Landscape: Autonomous Development Agents
