@@ -177,8 +177,13 @@ Before writing any Tech Spec, apply the Confidence Gate Protocol from the inject
 Select the appropriate checklist based on the issue type (Bug vs Enhancement).
 Calculate your weighted confidence score.
 
+IMPORTANT: Before posting a needs-info comment, check the issue comments for a prior needs-info exchange
+(a 🤖 comment asking for clarification followed by a human reply). If clarification was already provided,
+do NOT ask again — proceed to STEP 2 with the information available, even if confidence is below 85.
+You may only post a NEW needs-info if no prior clarification exchange exists in the comments.
+
 - If score >= 85: proceed to STEP 2.
-- If score < 85: post a needs-info clarifying comment using the exact format from the protocol, execute:
+- If score < 85 AND no prior clarification was provided: post a needs-info clarifying comment using the exact format from the protocol, execute:
     gh issue edit <number> --add-label needs-info
   Then output the following JSON and STOP — do NOT write a TECH_SPEC:
   {
