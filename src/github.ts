@@ -48,8 +48,26 @@ export function gh(command: string, cwd?: string): any {
 }
 
 /**
- * Detect if a human has replied after the last bot comment.
- * Find last comment starting with 🤖, then check for subsequent non-bot comments.
+ * Status-only bot comments that don't ask for human input.
+ * These should not reset the reply-detection window.
+ */
+const BOT_STATUS_PHRASES = [
+  'Clarification received',
+  'Routing back',
+  'Spec approved',
+  'PR approved',
+  'Review feedback detected',
+];
+
+function isBotStatusComment(body: string): boolean {
+  const trimmed = body.replace(/^🤖\s*/, '').trim();
+  return BOT_STATUS_PHRASES.some(phrase => trimmed.startsWith(phrase));
+}
+
+/**
+ * Detect if a human has replied after the last bot comment that asked for input.
+ * Skips status-only bot comments (e.g. "Clarification received") so they don't
+ * reset the detection window and hide the user's actual reply.
  */
 export function hasHumanReplyAfterBot(comments: Array<{ body: string; author: { login: string }; createdAt: string }>): boolean {
   if (!comments || comments.length === 0) return false;
@@ -57,7 +75,7 @@ export function hasHumanReplyAfterBot(comments: Array<{ body: string; author: { 
   let lastBotIndex = -1;
   for (let i = comments.length - 1; i >= 0; i--) {
     const comment = comments[i];
-    if (comment && comment.body.trim().startsWith('🤖')) {
+    if (comment && comment.body.trim().startsWith('🤖') && !isBotStatusComment(comment.body)) {
       lastBotIndex = i;
       break;
     }
