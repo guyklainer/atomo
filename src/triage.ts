@@ -5,7 +5,6 @@ import { runAgent } from './runner.js';
 import { fileURLToPath } from 'url';
 import { gh, hasHumanReplyAfterBot, type GitHubIssue } from './github.js';
 
-// Fix for __dirname in ESM environments run via tsx
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -16,12 +15,11 @@ const TRIAGE_PROTO = loadProtocol('triage');
 const CONFIDENCE_PROTO = loadProtocol('confidence_gate');
 
 // ─────────────────────────────────────────────────────────────────
-// FLOW B: DETERMINISTIC PRE-PROCESSING (runs before LLM invocation)
+// PRE-PROCESSING: Re-evaluate needs-info issues (deterministic)
 // ─────────────────────────────────────────────────────────────────
 
 /**
- * Determine which agent paused this issue based on labels
- * Per reevaluation protocol step 4:
+ * Determine which agent paused this issue based on labels.
  * - No 'triaged' label → Gatekeeper paused it
  * - Has 'triaged' but no 'for-dev' → Architect paused it
  */
@@ -31,91 +29,79 @@ function detectPausingAgent(labels: Array<{ name: string }>): 'gatekeeper' | 'ar
   const hasForDev = labelNames.includes('for-dev');
 
   if (!hasTriaged) {
-    return 'gatekeeper'; // Paused before classification
+    return 'gatekeeper';
   } else if (hasTriaged && !hasForDev) {
-    return 'architect'; // Paused after classification, before planning
+    return 'architect';
   }
 
-  return null; // Shouldn't happen for needs-info issues, but handle gracefully
+  return null;
 }
 
 /**
- * FLOW B: Re-evaluate needs-info issues (deterministic pre-processing)
- * Handles Architect Re-Entry fully in code.
- * For Gatekeeper Re-Entry, removes needs-info label and lets FLOW A re-process.
+ * Re-evaluate issues waiting for human clarification.
+ * - Gatekeeper Re-Entry: removes needs-info so the LLM re-triages the issue.
+ * - Architect Re-Entry: removes needs-info and routes back to the Architect.
  */
-async function handleNeedsInfoIssues(): Promise<void> {
-  console.log('[FLOW B] Checking needs-info issues...');
+async function reEvaluateNeedsInfo(): Promise<void> {
+  console.log('[pre-processing] Checking needs-info issues...');
 
-  // Step 1: Query for pending issues
   const issues: GitHubIssue[] = gh(
     'issue list --search "is:open label:needs-info" --limit 10 --json number,title,createdAt'
   );
 
   if (!issues || issues.length === 0) {
-    console.log('[FLOW B] No needs-info issues found.');
+    console.log('[pre-processing] No needs-info issues found.');
     return;
   }
 
-  console.log(`[FLOW B] Found ${issues.length} needs-info issue(s)`);
+  console.log(`[pre-processing] Found ${issues.length} needs-info issue(s)`);
 
-  // Process each issue
   for (const issue of issues) {
-    console.log(`[FLOW B] Processing issue #${issue.number}...`);
+    console.log(`[pre-processing] Processing issue #${issue.number}...`);
 
-    // Step 2: Fetch full details
     const fullIssue: GitHubIssue = gh(
       `issue view ${issue.number} --json number,title,body,labels,comments`
     );
 
-    // Step 3: Detect human reply
     const hasReply = hasHumanReplyAfterBot(fullIssue.comments);
 
     if (!hasReply) {
-      console.log(`[FLOW B] Issue #${issue.number}: No human reply yet, skipping.`);
+      console.log(`[pre-processing] Issue #${issue.number}: No human reply yet, skipping.`);
       continue;
     }
 
-    console.log(`[FLOW B] Issue #${issue.number}: Human reply detected!`);
+    console.log(`[pre-processing] Issue #${issue.number}: Human reply detected!`);
 
-    // Step 4: Determine which agent paused it
     const pausingAgent = detectPausingAgent(fullIssue.labels);
 
     if (pausingAgent === 'gatekeeper') {
-      // Gatekeeper Re-Entry: Remove needs-info, let FLOW A re-triage
-      console.log(`[FLOW B] Issue #${issue.number}: Gatekeeper Re-Entry → Removing needs-info`);
+      console.log(`[pre-processing] Issue #${issue.number}: Gatekeeper re-entry → removing needs-info`);
       gh(`issue edit ${issue.number} --remove-label needs-info`);
-      // FLOW A will pick this up as untriaged (no 'triaged' label) and re-classify with new context
 
     } else if (pausingAgent === 'architect') {
-      // Architect Re-Entry: Complete handling here (no LLM needed)
-      console.log(`[FLOW B] Issue #${issue.number}: Architect Re-Entry → Routing back to Architect`);
+      console.log(`[pre-processing] Issue #${issue.number}: Architect re-entry → routing back to Architect`);
       gh(`issue edit ${issue.number} --remove-label needs-info`);
       gh(`issue comment ${issue.number} --body "🤖 Clarification received. Routing back to the Architect for planning."`);
-      // Architect will pick this up on next run (has 'triaged', no 'for-dev', no 'needs-info')
 
     } else {
-      console.warn(`[FLOW B] Issue #${issue.number}: Unexpected state (pausing agent: ${pausingAgent}), skipping.`);
+      console.warn(`[pre-processing] Issue #${issue.number}: Unexpected label state, skipping.`);
     }
   }
 
-  console.log('[FLOW B] Re-evaluation complete.');
+  console.log('[pre-processing] Re-evaluation complete.');
 }
 
 // ─────────────────────────────────────────────────────────────────
-// SYSTEM PROMPT (FLOW A only - FLOW B now runs in code above)
+// LLM AGENT: Triage new issues
 // ─────────────────────────────────────────────────────────────────
 
 const SYSTEM_PROMPT = `
 You are the autonomous Triage Gatekeeper.
 Your objective is to ingest open GitHub issues and classify them using strict heuristic guidelines.
-FLOW B (needs-info re-evaluation) is now handled before you run, so focus only on FLOW A below.
 
 ---
 
-## FLOW A — Triage New Issues
-
-### STEP A1: DATA INGESTION
+### STEP 1: DATA INGESTION
 Use the Bash tool to execute:
   gh issue list --search "is:open -label:triaged -label:for-dev" --limit 1 --json number,title,createdAt
 
@@ -124,34 +110,32 @@ If an issue exists, fetch its full detail:
 
 If there are no open untriaged issues, you're done.
 
-### STEP A2: COGNITIVE ANALYSIS (CHAIN OF THOUGHT)
+### STEP 2: COGNITIVE ANALYSIS (CHAIN OF THOUGHT)
 Document your reasoning step-by-step. Apply the 'Meta-Prompt Heuristic Matrix' defined in the injected Triage Protocol rules to classify the issue.
 
-### STEP A3: CONFIDENCE GATE
+### STEP 3: CONFIDENCE GATE
 Before acting, apply the Confidence Gate Protocol defined in the injected rules below.
 Calculate your confidence score.
 
 IMPORTANT: Before posting a needs-info comment, check the issue comments for a prior needs-info exchange
 (a 🤖 comment asking for clarification followed by a human reply). If clarification was already provided,
-do NOT ask again — proceed to STEP A4 with the information available, even if confidence is below 85.
+do NOT ask again — proceed to STEP 4 with the information available, even if confidence is below 85.
 You may only post a NEW needs-info if no prior clarification exchange exists in the comments.
 
 If score < 85 AND no prior clarification was provided:
 - Post a needs-info comment and add ONLY the 'needs-info' label (do NOT add 'triaged').
-- Do NOT proceed to STEP A4.
-- This ensures FLOW B can detect Gatekeeper Re-Entry and FLOW A will re-process the issue after clarification.
+- Do NOT proceed to STEP 4.
 
-### STEP A4: REPOSITORY ACTION (only if confidence >= 85, OR prior clarification was already provided)
+### STEP 4: REPOSITORY ACTION (only if confidence >= 85, OR prior clarification was already provided)
 Use the Bash tool to interact with the repository:
 - If Bug (missingReproSteps=true) AND no prior clarification exists: Execute 'gh issue comment <number> --body "🤖 Automated Triage: Please provide reproduction steps so we can route this appropriately."' AND 'gh issue edit <number> --add-label needs-repro' (do NOT add 'triaged')
 - If Ambiguous AND no prior clarification exists: Execute 'gh issue comment <number> --body "🤖 Automated Triage: This issue lacks technical depth. Please clarify your request."' AND 'gh issue edit <number> --add-label needs-triage' (do NOT add 'triaged')
 - If prior clarification was already provided: Do NOT post a clarifying comment. Classify using your best judgment based on the available context, and execute 'gh issue edit <number> --add-label <Classification-Label>,triaged'
 - If Bug (missingReproSteps=false) / Enhancement / Question: Execute 'gh issue edit <number> --add-label <Classification-Label>,triaged'
 
-### STEP A5: CLASSIFICATION DECISION
+### STEP 5: CLASSIFICATION DECISION
 Output a structured JSON block:
 {
-  "flow": "A",
   "issueNumber": <number>,
   "classification": "Bug" | "Enhancement" | "Question" | "Ambiguous",
   "confidenceScore": <0-100>,
@@ -175,20 +159,32 @@ ${CONFIDENCE_PROTO}
 
 `;
 
+/**
+ * Check if there are untriaged issues that need LLM classification.
+ */
+function hasUntriagedIssues(): boolean {
+  const issues: GitHubIssue[] = gh(
+    'issue list --search "is:open -label:triaged -label:for-dev" --limit 1 --json number'
+  );
+  return issues && issues.length > 0;
+}
+
 // ─────────────────────────────────────────────────────────────────
-// MAIN EXECUTION: Run FLOW B (deterministic), then FLOW A (LLM)
+// MAIN
 // ─────────────────────────────────────────────────────────────────
 
-// Execute FLOW B (needs-info re-evaluation) BEFORE invoking LLM
 (async () => {
   try {
-    await handleNeedsInfoIssues(); // Deterministic pre-processing
+    await reEvaluateNeedsInfo();
   } catch (error) {
-    console.error('[FLOW B] Error during needs-info handling:', error);
-    // Continue to FLOW A even if FLOW B fails (they're independent)
+    console.error('[pre-processing] Error during needs-info handling:', error);
   }
 
-  // Now execute FLOW A (triage new issues) via LLM
+  if (!hasUntriagedIssues()) {
+    console.log('[Gatekeeper] No untriaged issues found. Skipping LLM invocation.');
+    return;
+  }
+
   await runAgent('Gatekeeper', SYSTEM_PROMPT, {
     model: 'claude-haiku-4-5',
     tools: ['Bash'],
