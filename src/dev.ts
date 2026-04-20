@@ -139,7 +139,7 @@ function pickHighestPriorityIssue(): GitHubIssue | null {
   try {
     const raw = execSync(
       'gh issue list --search "is:open label:for-dev -label:pr-ready -label:blocked" --limit 50 --json number,title,body',
-      { encoding: 'utf-8' }
+      { encoding: 'utf-8', cwd: targetCwd }
     );
     const issues: GitHubIssue[] = JSON.parse(raw).map((i: GitHubIssue) => ({
       ...i,

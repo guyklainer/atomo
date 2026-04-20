@@ -7,6 +7,7 @@ import { gh, hasHumanReplyAfterBot, type GitHubIssue } from './github.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const targetCwd = process.env.TARGET_REPO_PATH || process.cwd();
 
 const loadProtocol = (name: string) => fs.readFileSync(path.join(__dirname, `../protocols/${name}.md`), 'utf-8');
 
@@ -46,7 +47,8 @@ async function reEvaluateNeedsInfo(): Promise<void> {
   console.log('[pre-processing] Checking needs-info issues...');
 
   const issues: GitHubIssue[] = gh(
-    'issue list --search "is:open label:needs-info" --limit 10 --json number,title,createdAt'
+    'issue list --search "is:open label:needs-info" --limit 10 --json number,title,createdAt',
+    targetCwd
   );
 
   if (!issues || issues.length === 0) {
@@ -60,7 +62,8 @@ async function reEvaluateNeedsInfo(): Promise<void> {
     console.log(`[pre-processing] Processing issue #${issue.number}...`);
 
     const fullIssue: GitHubIssue = gh(
-      `issue view ${issue.number} --json number,title,body,labels,comments`
+      `issue view ${issue.number} --json number,title,body,labels,comments`,
+      targetCwd
     );
 
     const hasReply = hasHumanReplyAfterBot(fullIssue.comments);
@@ -76,12 +79,12 @@ async function reEvaluateNeedsInfo(): Promise<void> {
 
     if (pausingAgent === 'gatekeeper') {
       console.log(`[pre-processing] Issue #${issue.number}: Gatekeeper re-entry → removing needs-info`);
-      gh(`issue edit ${issue.number} --remove-label needs-info`);
+      gh(`issue edit ${issue.number} --remove-label needs-info`, targetCwd);
 
     } else if (pausingAgent === 'architect') {
       console.log(`[pre-processing] Issue #${issue.number}: Architect re-entry → routing back to Architect`);
-      gh(`issue edit ${issue.number} --remove-label needs-info`);
-      gh(`issue comment ${issue.number} --body "🤖 Clarification received. Routing back to the Architect for planning."`);
+      gh(`issue edit ${issue.number} --remove-label needs-info`, targetCwd);
+      gh(`issue comment ${issue.number} --body "🤖 Clarification received. Routing back to the Architect for planning."`, targetCwd);
 
     } else {
       console.warn(`[pre-processing] Issue #${issue.number}: Unexpected label state, skipping.`);
@@ -164,7 +167,8 @@ ${CONFIDENCE_PROTO}
  */
 function hasUntriagedIssues(): boolean {
   const issues: GitHubIssue[] = gh(
-    'issue list --search "is:open -label:triaged -label:for-dev" --limit 1 --json number'
+    'issue list --search "is:open -label:triaged -label:for-dev" --limit 1 --json number',
+    targetCwd
   );
   return issues && issues.length > 0;
 }
