@@ -14,7 +14,6 @@ const loadProtocol = (name: string) => fs.readFileSync(path.join(__dirname, `../
 const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '../CLAUDE.md'), 'utf-8');
 const TRIAGE_PROTO = loadProtocol('triage');
 const CONFIDENCE_PROTO = loadProtocol('confidence_gate');
-const REEVALUATION_PROTO = loadProtocol('reevaluation');
 
 // ─────────────────────────────────────────────────────────────────
 // FLOW B: DETERMINISTIC PRE-PROCESSING (runs before LLM invocation)
@@ -174,9 +173,6 @@ ${TRIAGE_PROTO}
 
 ${CONFIDENCE_PROTO}
 
----
-
-${REEVALUATION_PROTO}
 `;
 
 // ─────────────────────────────────────────────────────────────────
