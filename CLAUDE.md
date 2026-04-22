@@ -15,13 +15,13 @@ If you are modifying an agent and find yourself writing protocol logic (classifi
 ## Modular Protocols
 For technical details and strict behavior rules, refer to the following:
 
-- **[Triage Protocol](file:///Users/guyklainer/Developer/triage-agent/protocols/triage.md)**: Metadata matrix and classification rules.
-- **[Zero-Waste Protocol](file:///Users/guyklainer/Developer/triage-agent/protocols/planning.md)**: Rules for codebase traversal and technical planning.
-- **[Confidence Gate Protocol](file:///Users/guyklainer/Developer/triage-agent/protocols/confidence_gate.md)**: Scored self-evaluation checklists.
-- **[needs-info Protocol](file:///Users/guyklainer/Developer/triage-agent/protocols/reevaluation.md)**: Automated re-entry loop for clarifications.
-- **[Atomic Epic Breakdown](file:///Users/guyklainer/Developer/triage-agent/protocols/epic_breakdown.md)**: Rules for splitting complex issues.
-- **[Atomo Dev Protocol](file:///Users/guyklainer/Developer/triage-agent/protocols/atomo_dev.md)**: Rigid Observe → Align → Execute loop rules.
-- **[TDD Protocol](file:///Users/guyklainer/Developer/triage-agent/protocols/tdd.md)**: Mandatory testing and verification discipline.
+- **[Triage Protocol](./protocols/triage.md)**: Metadata matrix and classification rules.
+- **[Zero-Waste Protocol](./protocols/planning.md)**: Rules for codebase traversal and technical planning.
+- **[Confidence Gate Protocol](./protocols/confidence_gate.md)**: Scored self-evaluation checklists.
+- **[needs-info Protocol](./protocols/reevaluation.md)**: Automated re-entry loop for clarifications.
+- **[Atomic Epic Breakdown](./protocols/epic_breakdown.md)**: Rules for splitting complex issues.
+- **[Atomo Dev Protocol](./protocols/atomo_dev.md)**: Rigid Observe → Align → Execute loop rules.
+- **[TDD Protocol](./protocols/tdd.md)**: Mandatory testing and verification discipline.
 
 
 ---

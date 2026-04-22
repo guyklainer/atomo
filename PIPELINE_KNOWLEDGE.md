@@ -13,7 +13,7 @@ We set out to build a **lean, local, autonomous agent pipeline** that replaces m
 4. **Executes** the implementation, creating atomic, testable Pull Requests.
 5. **Cascades** dependency chains automatically so downstream work unlocks as upstream PRs merge.
 
-The repository is located at `/Users/guyklainer/Developer/triage-agent`. The target destination application repository (the codebase being triaged and modified) is `/Users/guyklainer/Developer/q-li`.
+The repository is located at `<path-to-atomo>`. The target destination application repository (the codebase being triaged and modified) is `<path-to-target-repo>`.
 
 ---
 
@@ -41,7 +41,7 @@ Heavy rules and protocols should **not** be embedded inside the TypeScript syste
 
 This is called the **Progressive Disclosure pattern**: the agent is told "the rules are here" rather than receiving all rules immediately.
 
-> **Critical Discovery:** The `cwd` option shifts the SDK's `Glob/Grep/Read` tools to the target repository (e.g. `q-li`). This means if the agent tries to read `CLAUDE.md` using its tools, it would look inside `q-li` — not `triage-agent`. That is why we physically inject the modular protocol content at Node.js startup time using `fs.readFileSync`. This is guaranteed and immutable, regardless of where the agent's tools are pointed.
+> **Critical Discovery:** The `cwd` option shifts the SDK's `Glob/Grep/Read` tools to the target repository (e.g. `target-repo`). This means if the agent tries to read `CLAUDE.md` using its tools, it would look inside `target-repo` — not `atomo`. That is why we physically inject the modular protocol content at Node.js startup time using `fs.readFileSync`. This is guaranteed and immutable, regardless of where the agent's tools are pointed.
 
 ### 3.3 Zero-Waste Codebase Exploration
 Every token in the context window costs money. Forcing an agent to `Read` entire source files is catastrophically wasteful. The Zero-Waste Protocol forces the agent to:
@@ -134,7 +134,7 @@ The Architect is the technical intelligence layer. It picks up issues that have 
    - **Impact (I) [1-5]:** How many users does this affect?
    - **Confidence (C) [1-5]:** How definitively did it find the root cause / implementation path?
    - **Effort (E) [1-5]:** How complex is the required implementation? (Higher = harder; dividing by E prioritizes "Quick Wins")
-4. **Blueprint Generation:** Writes `docs/plans/TECH_SPEC_<number>.md` in the **destination repository** (not triage-agent). The file must start with the formatted Priority Score: `Priority: 6.0 (I=3, C=4, E=2)`.
+4. **Blueprint Generation:** Writes `docs/plans/TECH_SPEC_<number>.md` in the **destination repository** (not atomo). The file must start with the formatted Priority Score: `Priority: 6.0 (I=3, C=4, E=2)`.
 5. **Issue Comment:** Attaches the Tech Spec to the GitHub issue via `gh issue comment <number> -F docs/plans/TECH_SPEC_<number>.md`.
 6. **Atomic Epic Breakdown (for complex issues):** If the issue requires multiple independently-deployable phases, the Architect does NOT write one monolithic spec. It creates separate GitHub child issues per phase and labels them properly:
    - Phase 1 → `for-dev` (unblocked)
@@ -206,7 +206,7 @@ This is the single source of truth for all agent behavior rules. It contains:
 - **Commands:** Quick-reference for all three npm scripts
 
 ### 5.3 The `.env` File
-Contains `ANTHROPIC_API_KEY` and optionally `TARGET_REPO_PATH`. The `TARGET_REPO_PATH` is critical — it points to the destination repository the Architect and Dev agents operate against. Without this, all agents default to `process.cwd()` (the triage-agent directory itself).
+Contains `ANTHROPIC_API_KEY` and optionally `TARGET_REPO_PATH`. The `TARGET_REPO_PATH` is critical — it points to the destination repository the Architect and Dev agents operate against. Without this, all agents default to `process.cwd()` (the atomo directory itself).
 
 ---
 
@@ -310,7 +310,7 @@ The issue body is the dependency manifest. When the Architect creates child issu
 ## 8. File Structure
 
 ```
-triage-agent/
+atomo/
 ├── src/
 │   ├── runner.ts        # Shared Anthropic SDK execution loop
 │   ├── triage.ts        # The Gatekeeper agent (Haiku, Bash-only)
@@ -324,7 +324,7 @@ triage-agent/
 └── .gitignore           # Excludes .env, node_modules
 ```
 
-The **destination repository** (`q-li` or any other) is expected to have:
+The **destination repository** (e.g. `target-repo` or any other) is expected to have:
 ```
 <target-repo>/
 ├── docs/
@@ -339,7 +339,7 @@ The **destination repository** (`q-li` or any other) is expected to have:
 
 ### Step 1: Setup
 ```bash
-cd /Users/guyklainer/Developer/triage-agent
+cd <path-to-atomo>
 cp .env.example .env
 # Add ANTHROPIC_API_KEY and TARGET_REPO_PATH to .env
 npm install
@@ -379,4 +379,4 @@ Run each step repeatedly in a loop (or via cron) to automatically churn through 
 
 ---
 
-*This document captures the full architectural journey, design philosophy, and implementation details of the Autonomous GitHub Issue Triage & Execution Pipeline built in conversation between Guy Klainer and Antigravity (Google DeepMind), April 2026.*
+*This document captures the full architectural journey, design philosophy, and implementation details of the Autonomous GitHub Issue Triage & Execution Pipeline, April 2026.*

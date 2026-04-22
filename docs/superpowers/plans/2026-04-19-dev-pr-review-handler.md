@@ -67,7 +67,7 @@ export function extractIssueNumber(branchName: string, body: string): number | n
 
 - [ ] **Step 3: Verify TypeScript compiles**
 
-Run: `cd /home/guyklainer/Developer/atomo && npx tsc --noEmit`
+Run: `npx tsc --noEmit`
 Expected: No errors
 
 - [ ] **Step 4: Commit**
@@ -191,7 +191,7 @@ function handlePRReviews(): PRReviewResult {
 
 - [ ] **Step 3: Verify TypeScript compiles**
 
-Run: `cd /home/guyklainer/Developer/atomo && npx tsc --noEmit`
+Run: `npx tsc --noEmit`
 Expected: No errors
 
 - [ ] **Step 4: Commit**
@@ -325,7 +325,7 @@ The old code used `process.env.TARGET_REPO_PATH || process.cwd()` inline in the 
 
 - [ ] **Step 3: Verify TypeScript compiles**
 
-Run: `cd /home/guyklainer/Developer/atomo && npx tsc --noEmit`
+Run: `npx tsc --noEmit`
 Expected: No errors
 
 - [ ] **Step 4: Commit**
