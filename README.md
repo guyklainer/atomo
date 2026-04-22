@@ -51,6 +51,9 @@ cat << 'EOF' > .env
 ANTHROPIC_API_KEY=your_key_here
 TARGET_REPO_PATH=/absolute/path/to/target/project
 EOF
+
+# Init and validate your setup
+npm run init
 ```
 
 ## 🎮 Command Center
