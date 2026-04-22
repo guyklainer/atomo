@@ -33,7 +33,7 @@ Atomo is broken down into purpose-built agents running specific reasoning-and-ac
 1. **[Node.js](https://nodejs.org)** (v20+)
 2. **[TypeScript / tsx](https://github.com/privatenumber/tsx)**
 3. **[GitHub CLI (`gh`)](https://cli.github.com/)** – authenticated by running `gh auth login`.
-4. **Anthropic API Key** (e.g. Claude 3.5/3.7 Sonnet). 
+4. **Anthropic API Key**
 
 ## 📦 Installation
 
