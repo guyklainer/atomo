@@ -253,52 +253,13 @@ ${TDD_PROTO}
 ${EPIC_PROTO}
 -------------------------
 
-PHASE 1: GROUNDING & BRANCHING
-1. Fetch the full issue and comments: 'gh issue view ${targetIssue.number} --json number,title,body,comments'.
-2. Read the associated 'docs/plans/TECH_SPEC_${targetIssue.number}.md'.
-3. Verify architectural boundaries and acceptance criteria.
-4. BRANCHING STRATEGY (NEW - Issue #7):
-   a. Check if planner branch exists: 'git ls-remote --heads origin planner/issue-${targetIssue.number}'
-   b. If planner branch exists:
-      - Checkout planner branch: 'git checkout planner/issue-${targetIssue.number}'
-      - Pull latest: 'git pull origin planner/issue-${targetIssue.number}'
-      - Create atomo branch from planner: 'git checkout -b atomo/issue-${targetIssue.number}'
-   c. If planner branch does NOT exist (fallback for old issues):
-      - Create atomo branch from main: 'git checkout -b atomo/issue-${targetIssue.number}'
-      - Log warning that planner branch was not found
+Follow the complete 'Atomo: The Methodical Dev Protocol' (Phases 0-5) as defined in the ATOMO_DEV_PROTO injected above.
+Do NOT deviate from the protocol phases. All detailed instructions are in the protocol file.
 
-PHASE 2: PATTERN DISCOVERY
-1. Use 'Grep' to find 2-3 existing implementations of similar logic in the codebase.
-2. Search '.claude/', '.agents/', and 'MEMORY.md' inside the target repository for custom rules or historical patterns.
-3. Document your findings in your reasoning stream.
-
-PHASE 3: SURGICAL IMPLEMENTATION
-1. Document your implementation plan (line-by-line) in your reasoning stream.
-2. Follow the TDD Protocol (Phase 0: Baseline Check).
-3. Implement and verify in incremental units (TDD Phase 1 & 2).
-4. Use 'Bash', 'Read', and 'Write' tools for surgical modification.
-
-PHASE 4: VERIFICATION & REPORTING
-1. FINAL GATE: Run 'npx tsc --noEmit && npm run lint && npm test' (TDD Phase 3).
-   NOTE: If lint or test commands don't exist, skip them but ALWAYS run tsc.
-2. CROSS-CHECK: Explicitly verify that each **Acceptance Criterion** from the TECH_SPEC has been met.
-3. BRANCH HANDOFF:
-   - git add . && git commit -m "Implement Issue #${targetIssue.number}: ${targetIssue.title}
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
-   - git push -u origin atomo/issue-${targetIssue.number}
-   - gh pr create --title "Resolve #${targetIssue.number}: ${targetIssue.title}" --body "Resolves #${targetIssue.number}
-
-Automated PR following Atomo Protocol."
-   - gh issue edit ${targetIssue.number} --add-label pr-ready --remove-label for-dev
-4. COMPLETION REPORT: Post a final comment on Issue #${targetIssue.number} with the following format:
-   \`\`\`
-   🤖 Atomo Completion Report
-   - Changes: <summary>
-   - Verification: <tsc/lint/test results>
-   - Acceptance: <confirmation of each criterion>
-   \`\`\`
-5. DEPENDENCY CASCADE: If issue body contains "Blocks: #<number>", use 'gh issue edit <number> --remove-label blocked'.
+AGENT-SPECIFIC RUNTIME VALUES:
+- Target Issue: #${targetIssue.number} - "${targetIssue.title}"
+- Required TECH_SPEC: docs/plans/TECH_SPEC_${targetIssue.number}.md
+- Feature Branch Pattern: atomo/issue-${targetIssue.number}
 ${DEV_HINT ? `\n---\n\n## REVIEWER HINTS (supplemental guidance, not protocol rules)\n${DEV_HINT}` : ''}
 `;
 
