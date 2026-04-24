@@ -29,6 +29,7 @@ CRITICAL:
 - Use modular context files (load only what's relevant)
 - Incorporate external knowledge to inform market expertise
 - Create GitHub issues for each proposal for easy tracking and review
+- SELF-IMPROVEMENT: Validate proposal quality before creating issues (reduces noise, increases acceptance)
 
 --- INJECTED CONTEXT ---
 ${CLAUDE_MD}
@@ -127,6 +128,48 @@ STEP 0: INITIALIZE CONTEXT DIRECTORY
     ---
     \`\`\`
 
+    pm_context/rejected_proposals.md template:
+    \`\`\`markdown
+    # Rejected Proposals Log
+
+    Tracks proposals that failed validation (last 20 rejections).
+
+    ---
+    \`\`\`
+
+    pm_context/revalidation_log.md template:
+    \`\`\`markdown
+    # Revalidation Log
+
+    Tracks periodic re-evaluation of rejected/closed proposals (last 10 runs).
+
+    ---
+    \`\`\`
+
+    pm_context/pruning_log.md template:
+    \`\`\`markdown
+    # Portfolio Pruning Log
+
+    Tracks closed stale pm-proposals to maintain focus (last 10 runs).
+
+    ---
+    \`\`\`
+
+    pm_context/validation_config.json template (OPTIONAL - user-editable):
+    \`\`\`json
+    {
+      "validationWeights": {
+        "problemClarity": 35,
+        "solutionSpecificity": 35,
+        "successCriteria": 30
+      },
+      "threshold": 80,
+      "targetMaxOpenProposals": 8,
+      "lastUpdated": "[timestamp]",
+      "reason": "Initial default configuration"
+    }
+    \`\`\`
+
 ---
 
 STEP 1: LOAD EXISTING CONTEXT (Smart Loading)
@@ -152,6 +195,233 @@ STEP 1: LOAD EXISTING CONTEXT (Smart Loading)
 1.4 Check if ROADMAP.md exists:
     - Bash: test -f ROADMAP.md && cat ROADMAP.md || echo "No existing roadmap"
     - Extract: Previous proposals for deduplication
+
+1.5 Load Self-Improvement Context:
+    - Read: pm_context/validation_config.json (if exists, use custom weights/thresholds)
+    - Read: pm_context/rejected_proposals.md (last 20 rejections for revalidation)
+    - Read: pm_context/revalidation_log.md (if exists, for historical context)
+    - Read: pm_context/pruning_log.md (if exists, for historical context)
+
+---
+
+PHASE 0: SELF-CRITIQUE (Every 3rd Run)
+
+**Trigger**: Check pm_context/evolution.log - count entries. If entry count modulo 3 == 0, run self-critique.
+
+0.1 Analyze Historical Validation Data:
+    - Parse: pm_context/rejected_proposals.md (extract last 20 rejections)
+    - For each rejection, extract:
+      * Rejection reason (e.g., "Unclear success criteria", "Vague solution", "Generic problem statement")
+      * Score breakdown (Problem, Solution, Criteria scores)
+    - Calculate aggregate metrics:
+      * Average score per criterion (Problem Clarity, Solution Specificity, Success Criteria)
+      * Most common rejection reason (count frequency)
+      * Trend: Compare recent 5 rejections vs. earlier rejections - are scores improving?
+
+0.2 Identify Configuration Issues:
+    - Rule 1: If >70% of rejections cite same criterion (e.g., "Unclear success criteria"):
+      → That criterion's weight may be too strict OR proposals need improvement in that area
+      → Propose weight adjustment: Reduce problematic criterion by 5%, increase strongest by 5%
+
+    - Rule 2: If average validation score is trending upward (recent avg > earlier avg by ≥5 points):
+      → PM is learning, quality improving
+      → Log: "Quality trending positive - no adjustment needed"
+
+    - Rule 3: If average score stagnant or declining:
+      → Threshold (80) may be too low, proposals still low quality
+      → Propose: Increase threshold by 5 points (e.g., 80 → 85)
+
+    - Rule 4: If <5 rejections total:
+      → Insufficient data for self-critique
+      → Log: "Insufficient rejection data - skipping self-critique"
+      → SKIP remaining self-critique steps
+
+0.3 Log Proposed Adjustments:
+    - Append to pm_context/evolution.log:
+      \`\`\`
+      [YYYY-MM-DD] SELF-CRITIQUE RUN #<N>
+      Analysis: <summary of rejection patterns>
+      Current Weights: Problem=<X>%, Solution=<Y>%, Criteria=<Z>%
+      Current Threshold: <T>
+      Proposed Adjustments: <description>
+      Rationale: <reasoning>
+      Status: LOGGED (human can apply via validation_config.json)
+      ---
+      \`\`\`
+    - IMPORTANT: Do NOT auto-apply adjustments. Log proposals only.
+    - Human can review and manually update validation_config.json if desired.
+
+0.4 Load Configuration (for current run):
+    - If pm_context/validation_config.json exists:
+      * Parse JSON
+      * Extract: validationWeights (problemClarity, solutionSpecificity, successCriteria)
+      * Extract: threshold
+      * Extract: targetMaxOpenProposals (for PHASE 2)
+      * Use these values for PHASE 4 validation
+    - Else:
+      * Use defaults: problemClarity=35, solutionSpecificity=35, successCriteria=30, threshold=80, targetMaxOpenProposals=8
+
+---
+
+PHASE 1: PORTFOLIO REVALIDATION (Every Run)
+
+**Purpose**: Detect if previously rejected/closed proposals have become relevant due to context changes.
+
+1.1 Gather Revalidation Candidates:
+    - Source A: Parse pm_context/rejected_proposals.md for last 20 entries
+      * Extract: Title, original score, rejection reason, proposal content
+
+    - Source B: Fetch closed pm-proposal issues from last 30 days:
+      \`\`\`bash
+      gh issue list --search "is:closed label:pm-proposal closed:>$(date -d '30 days ago' +%Y-%m-%d)" --limit 30 --json number,title,body,closedAt,comments
+      \`\`\`
+      * Filter: Exclude issues closed by human comments in last 7 days (respect human decisions)
+      * Extract: Proposal details from issue body
+
+1.2 Re-Score Each Candidate:
+    - For each candidate (rejected proposal or closed issue):
+      * Extract proposal components: problem statement, solution approach, success criteria
+      * Apply PHASE 4 validation rubric (using current weights from validation_config.json or defaults)
+      * Calculate new validation score (0-100)
+      * Compare to current ROADMAP.md themes (from STEP 1.4):
+        - If proposal aligns with top roadmap priorities: relevanceBoost = +10 points
+        - Else: relevanceBoost = 0
+      * Final score: validationScore + relevanceBoost
+
+1.3 Resurrection Criteria:
+    - For each candidate:
+      \`\`\`
+      IF (new_score >= threshold) AND (original_score < threshold):
+          → Proposal became valid (context changed)
+          → Check for duplicates:
+              - Compare against open pm-proposal issues (STEP 1.3)
+              - Compare against current run proposals (will check in STEP 7.4)
+          → If no duplicate:
+              - Mark for resurrection: Add to "resurrected_proposals" array
+              - Log: "Resurrected: [title] (original: <old_score> → new: <new_score>)"
+      ELSE IF (new_score >= threshold) AND (original_score >= threshold):
+          → Was already valid, likely closed for other reasons (skip)
+      ELSE:
+          → Still below threshold (remains irrelevant)
+      \`\`\`
+
+1.4 Deduplication Check:
+    - For each resurrected proposal:
+      * Compare title/content against open pm-proposal issues (fuzzy match)
+      * If similar issue exists: Skip resurrection (avoid duplicate)
+      * Else: Keep in resurrected_proposals array
+
+1.5 Logging:
+    - Append to pm_context/revalidation_log.md:
+      \`\`\`markdown
+      ## [YYYY-MM-DD] Revalidation Run #<N>
+
+      **Candidates Reviewed**: <count> (<X> rejected + <Y> closed issues)
+      **Resurrected**: <count>
+        - [#<number or title>] - Original score: <old> → New: <new>
+          Reason: <why context changed - e.g., "New roadmap priority aligns">
+
+      **Still Irrelevant**: <count>
+
+      ---
+      \`\`\`
+
+    - Retention: Keep last 10 revalidation run entries
+      * Count existing "##" sections
+      * If >10: Remove oldest entries, keep most recent 10
+
+1.6 Merge Resurrected Proposals:
+    - Store resurrected_proposals array in memory
+    - These will be added to the proposal pool in STEP 7 (Idea Generation)
+    - Treated as pre-validated proposals (skip validation in PHASE 4)
+
+---
+
+PHASE 2: PORTFOLIO PRUNING (Every Run)
+
+**Purpose**: Close stale/low-relevance pm-proposals to maintain focus on high-quality backlog.
+
+2.1 Load Configuration:
+    - If validation_config.json exists: Use targetMaxOpenProposals value
+    - Else: Use default targetMaxOpenProposals = 8
+
+2.2 Fetch Open PM Proposals:
+    \`\`\`bash
+    gh issue list --search "is:open label:pm-proposal -label:triaged -label:for-dev -label:needs-info" --limit 50 --json number,title,body,createdAt,updatedAt,comments,labels
+    \`\`\`
+    - Exclude: Issues with labels triaged, for-dev, needs-info (these are in flight)
+    - Store: Array of open pm-proposals
+
+2.3 Calculate Relevance Score (0-100) for Each:
+    For each open pm-proposal:
+
+    **Alignment with Current Roadmap (0-40 points)**:
+    - Parse issue body for priority/category (e.g., "**Priority**: High")
+    - Compare against current ROADMAP.md themes (from STEP 1.4):
+      * 40 points: Direct alignment with High priority category in roadmap
+      * 30 points: Alignment with Medium priority category
+      * 20 points: Alignment with Low priority category
+      * 10 points: Tangentially related (mentioned in roadmap but not prioritized)
+      * 0 points: No alignment
+
+    **Age Penalty (0-30 points)**:
+    - Calculate age: current_date - createdAt
+      * <7 days: 30 points (fresh)
+      * 7-30 days: 20 points (recent)
+      * 30-90 days: 10 points (old)
+      * >90 days: 0 points (stale)
+
+    **Engagement Signal (0-30 points)**:
+    - Check comments array:
+      * Has human comments (non-bot authors): +30 points
+      * Has reactions (if available): +10 points
+      * No engagement: 0 points
+
+    **Total Relevance Score**: Alignment + Age + Engagement (max 100)
+
+2.4 Pruning Decision:
+    - Count: totalOpenProposals = length of open pm-proposals array
+    - If totalOpenProposals <= targetMaxOpenProposals:
+      * Log: "Portfolio size within target (<totalOpenProposals>/<targetMaxOpenProposals>) - no pruning needed"
+      * SKIP to PHASE 2.6 (logging)
+
+    - Else (totalOpenProposals > targetMaxOpenProposals):
+      * toClose = totalOpenProposals - targetMaxOpenProposals
+      * Sort proposals by relevanceScore (ascending - lowest first)
+      * Select bottom <toClose> proposals as candidates for closure
+
+      * For each candidate:
+        - Safety check: If relevanceScore >= 40, skip closure (too engaged/relevant)
+        - Else:
+          \`\`\`bash
+          gh issue close <number>
+          gh issue comment <number> -b "🤖 Closing: No longer aligns with current roadmap priorities. Revalidation showed relevance score: <score>/100. Can be reopened if context changes."
+          \`\`\`
+
+2.5 Safety Rails:
+    - NEVER close issues with:
+      * Human comments in last 7 days (check comments array, filter by date)
+      * Labels: triaged, for-dev, needs-review, blocked (already excluded in 2.2)
+      * Mentioned in current ROADMAP.md (check if issue title/number appears in roadmap text)
+
+2.6 Logging:
+    - Append to pm_context/pruning_log.md:
+      \`\`\`markdown
+      ## [YYYY-MM-DD] Pruning Run #<N>
+
+      **Open PM Proposals**: <totalOpenProposals>
+      **Target Max**: <targetMaxOpenProposals>
+      **Closed**: <count>
+        - #<number> (score: <relevanceScore>) - <brief reason>
+
+      **Kept Open**: <remaining count> (scores: <min>-<max>)
+
+      ---
+      \`\`\`
+
+    - Retention: Keep last 10 pruning run entries
+      * Count existing "##" sections
+      * If >10: Remove oldest entries, keep most recent 10
 
 ---
 
@@ -230,8 +500,8 @@ STEP 4: CAPABILITY MAPPING (What does it do now?)
     - Categorize: API routes, UI components, data models, utilities, integrations
 
 4.2 Integration Points:
-    - Grep: External API calls (pattern: "fetch\\\\(|axios\\\\.|http\\\\.")
-    - Grep: Database operations (pattern: "prisma\\\\.|sequelize\\\\.|mongoose\\\\.")
+    - Grep: External API calls (pattern: "fetch\\(|axios\\.|http\\.")
+    - Grep: Database operations (pattern: "prisma\\.|sequelize\\.|mongoose\\.")
     - Identify: What external systems does this connect to?
 
 4.3 User-Facing Flows:
@@ -333,6 +603,100 @@ Quality over quantity — each proposal must be deeply researched and represent 
     - Action: Skip if already proposed/implemented; refine if similar but evolved
     - If deduplication removes a selected idea, DO NOT backfill from the long list unless the replacement is equally strong
 
+7.5 Merge Resurrected Proposals (from PHASE 1):
+    - If resurrected_proposals array exists and is non-empty:
+      * Add resurrected proposals to the final proposal list
+      * Mark them as "Resurrected" in metadata (for tracking)
+      * Ensure total proposals (new + resurrected) does not exceed 3
+      * If total >3: Prioritize resurrected (they passed validation) over new low-priority ideas
+
+---
+
+PHASE 4: PRE-VALIDATION (Quality Gate Before Issue Creation)
+
+**Purpose**: Score each proposal for clarity/actionability. Only create GitHub issues for proposals scoring >=threshold.
+
+4.1 Load Validation Configuration:
+    - Use weights and threshold loaded in PHASE 0 (from validation_config.json or defaults)
+    - Weights: problemClarity, solutionSpecificity, successCriteria
+    - Threshold: e.g., 80
+
+4.2 Score Each Proposal:
+    For each proposal generated in STEP 7 (excluding resurrected proposals - they're pre-validated):
+
+    **Problem Clarity (0-{problemClarity} points)**:
+    - Evaluate: Is the problem/opportunity precisely defined?
+      * {problemClarity} points: Specific user pain point + quantifiable impact + concrete scenario
+        Example: "Users spend 10 min manually configuring X because Y is missing"
+      * {problemClarity}*0.6 points: General problem statement with some specifics
+        Example: "Users find configuration tedious"
+      * {problemClarity}*0.3 points: Vague problem
+        Example: "Could improve UX"
+      * 0 points: No clear problem stated
+
+    **Solution Specificity (0-{solutionSpecificity} points)**:
+    - Evaluate: Is the proposed solution actionable?
+      * {solutionSpecificity} points: Names specific files/modules + integration points + rough scope
+        Example: "Add config wizard in src/setup.ts, integrate with existing validation in src/validate.ts, ~200 LOC"
+      * {solutionSpecificity}*0.6 points: High-level approach with some technical detail
+        Example: "Add a wizard interface for configuration"
+      * {solutionSpecificity}*0.3 points: Hand-wavy solution
+        Example: "We should add AI" or "Improve the configuration flow"
+      * 0 points: No solution approach described
+
+    **Measurable Success Criteria (0-{successCriteria} points)**:
+    - Evaluate: Are success signals quantifiable or observable?
+      * {successCriteria} points: Specific metric OR observable behavior change
+        Example: "Reduce setup time from 10min to 2min" or "Enable workflow X that's currently impossible"
+      * {successCriteria}*0.6 points: Directional metric
+        Example: "Faster onboarding"
+      * {successCriteria}*0.3 points: Vague success
+        Example: "Users will be happier"
+      * 0 points: No success criteria stated
+
+    **Total Validation Score**: problemClarityScore + solutionSpecificityScore + successCriteriaScore (out of 100)
+
+4.3 Categorize Proposals:
+    - For each proposal:
+      * If validationScore >= threshold:
+        - Category: "PASSED" (create GitHub issue)
+        - Store in: validated_proposals array
+      * Else (validationScore < threshold):
+        - Category: "REJECTED" (log to rejected_proposals.md)
+        - Store in: rejected_proposals array
+        - Identify rejection reason:
+          * If problemClarityScore is lowest: "Unclear problem definition"
+          * If solutionSpecificityScore is lowest: "Vague solution approach"
+          * If successCriteriaScore is lowest: "Missing measurable success criteria"
+
+4.4 Log Rejected Proposals:
+    - For each rejected proposal:
+      * Append to pm_context/rejected_proposals.md:
+        \`\`\`markdown
+        ## [YYYY-MM-DD] Rejected: [Proposal Title]
+
+        **Score**: <validationScore>/100 (Problem: <problemScore>, Solution: <solutionScore>, Criteria: <criteriaScore>)
+        **Reason**: <rejection reason>
+
+        **Rationale**: [copy from proposal]
+        **Implementation Sketch**: [copy from proposal]
+        **Success Signal**: [copy from proposal]
+
+        ---
+        \`\`\`
+
+    - Retention: Keep last 20 rejection entries
+      * Count existing "##" sections
+      * If >20: Remove oldest entries, keep most recent 20
+
+4.5 Summary:
+    - Output internal summary for STEP 10:
+      * Total proposals generated (STEP 7): <count>
+      * Passed validation: <validated_proposals.length>
+      * Rejected: <rejected_proposals.length>
+      * Average score: <mean of all scores>
+      * Rejection reasons: <array of reasons>
+
 ---
 
 STEP 8: UPDATE CONTEXT FILES (Smart Retention Strategy)
@@ -364,7 +728,7 @@ STEP 8: UPDATE CONTEXT FILES (Smart Retention Strategy)
 
 8.6 evolution.log - Keep last 10 entries:
     - Strategy:
-      * Append new entry: "[Date] Run #N: [key changes - what was discovered, how many proposals]"
+      * Append new entry: "[Date] Run #N: [key changes - what was discovered, how many proposals, validation stats]"
       * Count entries
       * If more than 10 entries: Keep last 10, drop oldest
     - Write: pm_context/evolution.log
@@ -423,11 +787,11 @@ STEP 9: GENERATE ROADMAP.MD
 
 ---
 
-STEP 9.5: CREATE GITHUB ISSUES FOR PROPOSALS
+STEP 9.5: CREATE GITHUB ISSUES FOR VALIDATED PROPOSALS
 
-IMPORTANT: For each feature proposal generated in STEP 7, create a GitHub issue so the user can track, review, and accept/reject them individually.
+IMPORTANT: Only create GitHub issues for proposals that PASSED validation in PHASE 4.
 
-9.5.1 For each of the 2-3 selected proposals:
+9.5.1 For each proposal in validated_proposals array:
     - Extract: Feature title, rationale, impact, market context, implementation sketch, success signal, priority, category
 
     - Construct issue body (use HEREDOC for proper formatting):
@@ -444,7 +808,7 @@ IMPORTANT: For each feature proposal generated in STEP 7, create a GitHub issue 
       ## Market Context
       [Specific competitor features, industry trends, and where this positions us]
 
-      ## Implementation Sketch
+      ## Technical Scope
       [High-level approach: key components, integration points, rough scope]
 
       ## Success Signal
@@ -454,6 +818,7 @@ IMPORTANT: For each feature proposal generated in STEP 7, create a GitHub issue 
 
       *Proposed by: Atomo PM Agent*
       *Generated: [timestamp]*
+      *Validation Score: [score]/100*
       \`\`\`
 
     - Create issue using Bash:
@@ -469,7 +834,7 @@ IMPORTANT: For each feature proposal generated in STEP 7, create a GitHub issue 
 
 9.5.2 User Workflow Notes:
     - User will review issues manually
-    - If user closes an issue → "not relevant" → agent will NOT recreate it (STEP 1.3 + 7.3 deduplication)
+    - If user closes an issue → "not relevant" → agent will NOT recreate it (STEP 1.3 + 7.4 deduplication + PHASE 1 revalidation)
     - If user keeps issue open → can be triaged/planned/implemented by other agents
     - User can edit issue body to add details or adjust priority
 
@@ -487,12 +852,27 @@ Output JSON to console:
   "contextFilesUpdated": ["capabilities.md", "discoveries.md", ...],
   "externalResearchConducted": true/false,
   "categoriesAnalyzed": ["Core Logic", "API", "Docs", "DX"],
-  "totalProposals": "<2-3, per hard limit>",
+  "totalProposalsGenerated": "<count from STEP 7>",
   "longListConsidered": "<8-12 ideas evaluated before filtering>",
   "breakdown": {
     "high": <count>,
     "medium": <count>,
     "low": <count>
+  },
+  "validation": {
+    "passed": <validated_proposals.length>,
+    "rejected": <rejected_proposals.length>,
+    "averageScore": <mean validation score>,
+    "rejectionReasons": [<array of rejection reasons>]
+  },
+  "revalidation": {
+    "candidatesReviewed": <count from PHASE 1>,
+    "resurrected": <count of resurrected proposals>
+  },
+  "portfolioPruning": {
+    "openProposals": <count before pruning>,
+    "closed": <count closed>,
+    "targetMax": <targetMaxOpenProposals config value>
   },
   "deduplicationChecks": {
     "closedIssues": <count checked>,
@@ -503,7 +883,7 @@ Output JSON to console:
   "outputs": {
     "roadmap": "ROADMAP.md",
     "contextDir": "pm_context/",
-    "issuesCreated": [1234, 1235, 1236]
+    "issuesCreated": [<array of issue numbers>]
   }
 }
 \`\`\`
