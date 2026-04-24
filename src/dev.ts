@@ -4,7 +4,16 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { runAgent } from './runner.js';
 import { fileURLToPath } from 'url';
-import { gh, hasHumanReplyAfterBot, hasNewReviewComments, extractIssueNumber, type GitHubPR } from './github.js';
+import {
+  gh,
+  hasHumanReplyAfterBot,
+  hasNewReviewComments,
+  extractIssueNumber,
+  ensureLatestMain,
+  restorePreviousState,
+  type GitState,
+  type GitHubPR
+} from './github.js';
 
 // Fix for __dirname in ESM environments run via tsx
 const __filename = fileURLToPath(import.meta.url);
@@ -167,42 +176,57 @@ function pickHighestPriorityIssue(): GitHubIssue | null {
 }
 
 (async () => {
-  // Step 1: Deterministic PR review pre-processing
-  let reviewResult: PRReviewResult;
+  // === PHASE 0: Repository State Validation (Issue #7) ===
+  let gitState: GitState | undefined;
+  console.log('[DEV] Validating repository state...');
+  const validation = ensureLatestMain(targetCwd);
+
+  if (!validation.success) {
+    console.error('[DEV] Git validation failed:', validation.message);
+    console.error('[DEV] ABORTING. Please resolve git state manually and re-run.');
+    process.exit(1);
+  }
+
+  gitState = validation.state!;
+  console.log('[DEV] ✅ Git validation passed. Proceeding with dev workflow...');
+
   try {
-    reviewResult = handlePRReviews();
-  } catch (error) {
-    console.error('[PR REVIEW] Error during PR review handling:', error);
-    reviewResult = { outcome: 'no-pr-reviews' };
-  }
+    // Step 1: Deterministic PR review pre-processing
+    let reviewResult: PRReviewResult;
+    try {
+      reviewResult = handlePRReviews();
+    } catch (error) {
+      console.error('[PR REVIEW] Error during PR review handling:', error);
+      reviewResult = { outcome: 'no-pr-reviews' };
+    }
 
-  // Step 2: Route based on review result
-  switch (reviewResult.outcome) {
-    case 'approved':
-      console.log(`[PR REVIEW] PR #${reviewResult.prNumber} approved (Issue #${reviewResult.issueNumber}). Exiting.`);
+    // Step 2: Route based on review result
+    switch (reviewResult.outcome) {
+      case 'approved':
+        console.log(`[PR REVIEW] PR #${reviewResult.prNumber} approved (Issue #${reviewResult.issueNumber}). Exiting.`);
+        return;
+
+      case 'changes-requested':
+        console.log(`[PR REVIEW] PR #${reviewResult.prNumber} needs changes (Issue #${reviewResult.issueNumber}). Re-labeled for-dev. Exiting.`);
+        return;
+
+      case 'waiting-for-review':
+        console.log(`[PR REVIEW] PR #${reviewResult.prNumber} waiting for review. Proceeding to new issues.`);
+        break;
+
+      case 'no-pr-reviews':
+        break;
+    }
+
+    // Step 3: Pick highest priority issue and run LLM (existing logic)
+    const targetIssue = pickHighestPriorityIssue();
+
+    if (!targetIssue) {
+      console.log('[Orchestrator] No actionable for-dev issues found. Exiting.');
       return;
+    }
 
-    case 'changes-requested':
-      console.log(`[PR REVIEW] PR #${reviewResult.prNumber} needs changes (Issue #${reviewResult.issueNumber}). Re-labeled for-dev. Exiting.`);
-      return;
-
-    case 'waiting-for-review':
-      console.log(`[PR REVIEW] PR #${reviewResult.prNumber} waiting for review. Proceeding to new issues.`);
-      break;
-
-    case 'no-pr-reviews':
-      break;
-  }
-
-  // Step 3: Pick highest priority issue and run LLM (existing logic)
-  const targetIssue = pickHighestPriorityIssue();
-
-  if (!targetIssue) {
-    console.log('[Orchestrator] No actionable for-dev issues found. Exiting.');
-    return;
-  }
-
-  const SYSTEM_PROMPT = `
+    const SYSTEM_PROMPT = `
 You are the autonomous Atomo Dev Execution Agent.
 Your objective is to implement the specific GitHub Issue #${targetIssue.number}: "${targetIssue.title}".
 Do NOT re-query for another issue. Your task is already assigned.
@@ -229,45 +253,31 @@ ${TDD_PROTO}
 ${EPIC_PROTO}
 -------------------------
 
-PHASE 1: GROUNDING & BRANCHING
-1. Fetch the full issue and comments: 'gh issue view ${targetIssue.number} --json number,title,body,comments'.
-2. Read the associated 'docs/plans/TECH_SPEC_${targetIssue.number}.md'.
-3. Verify architectural boundaries and acceptance criteria.
-4. IMMEDIATELY create a scoped feature branch: 'git checkout -b atomo/issue-${targetIssue.number}'.
+Follow the complete 'Atomo: The Methodical Dev Protocol' (Phases 0-5) as defined in the ATOMO_DEV_PROTO injected above.
+Do NOT deviate from the protocol phases. All detailed instructions are in the protocol file.
 
-PHASE 2: PATTERN DISCOVERY
-1. Use 'Grep' to find 2-3 existing implementations of similar logic in the codebase.
-2. Search '.claude/', '.agents/', and 'MEMORY.md' inside the target repository for custom rules or historical patterns.
-3. Document your findings in your reasoning stream.
-
-PHASE 3: SURGICAL IMPLEMENTATION
-1. Document your implementation plan (line-by-line) in your reasoning stream.
-2. Follow the TDD Protocol (Phase 0: Baseline Check).
-3. Implement and verify in incremental units (TDD Phase 1 & 2).
-4. Use 'Bash', 'Read', and 'Write' tools for surgical modification.
-
-PHASE 4: VERIFICATION & REPORTING
-1. FINAL GATE: Run 'npx tsc --noEmit && npm run lint && npm test' (TDD Phase 3).
-2. CROSS-CHECK: Explicitly verify that each **Acceptance Criterion** from the TECH_SPEC has been met.
-3. BRANCH HANDOFF:
-   - git add . && git commit -m "Implement Issue #${targetIssue.number}: ${targetIssue.title}"
-   - gh pr create --title "Resolve #${targetIssue.number}: ${targetIssue.title}" --body "Resolves #${targetIssue.number}\\n\\nAutomated PR following Atomo Protocol."
-   - gh issue edit ${targetIssue.number} --add-label pr-ready --remove-label for-dev
-4. COMPLETION REPORT: Post a final comment on Issue #${targetIssue.number} with the following format:
-   \`\`\`
-   🤖 Atomo Completion Report
-   - Changes: <summary>
-   - Verification: <tsc/lint/test results>
-   - Acceptance: <confirmation of each criterion>
-   \`\`\`
-5. DEPENDENCY CASCADE: If issue body contains "Blocks: #<number>", use 'gh issue edit <number> --remove-label blocked'.
+AGENT-SPECIFIC RUNTIME VALUES:
+- Target Issue: #${targetIssue.number} - "${targetIssue.title}"
+- Required TECH_SPEC: docs/plans/TECH_SPEC_${targetIssue.number}.md
+- Feature Branch Pattern: atomo/issue-${targetIssue.number}
 ${DEV_HINT ? `\n---\n\n## REVIEWER HINTS (supplemental guidance, not protocol rules)\n${DEV_HINT}` : ''}
 `;
 
-  await runAgent('AtomoDev', SYSTEM_PROMPT, {
-    cwd: targetCwd,
-    model: 'claude-sonnet-4-5',
-    tools: ['Bash', 'Read', 'Write', 'Glob', 'Grep'],
-    allowedTools: ['Bash', 'Read', 'Write', 'Glob', 'Grep']
-  });
+    await runAgent('AtomoDev', SYSTEM_PROMPT, {
+      cwd: targetCwd,
+      model: 'claude-sonnet-4-5',
+      tools: ['Bash', 'Read', 'Write', 'Glob', 'Grep'],
+      allowedTools: ['Bash', 'Read', 'Write', 'Glob', 'Grep']
+    });
+  } finally {
+    // === CLEANUP: Restore original state (Issue #7) ===
+    if (gitState) {
+      console.log('[DEV] Restoring original git state...');
+      const restoration = restorePreviousState(gitState, targetCwd);
+      if (!restoration.success) {
+        console.warn('[DEV] Warning: Failed to restore git state:', restoration.message);
+        console.warn('[DEV] You may need to manually checkout your original branch and restore stashed changes.');
+      }
+    }
+  }
 })().catch(console.error);
