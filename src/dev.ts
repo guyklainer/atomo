@@ -111,6 +111,13 @@ function handlePRReviews(): PRReviewResult {
 
 const loadProtocol = (name: string) => fs.readFileSync(path.join(__dirname, `../protocols/${name}.md`), 'utf-8');
 
+const loadHint = (name: string): string => {
+  const hintPath = path.join(__dirname, `../reviewer_context/hints/${name}.md`);
+  return fs.existsSync(hintPath) ? fs.readFileSync(hintPath, 'utf-8') : '';
+};
+
+const DEV_HINT = loadHint('dev');
+
 const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '../CLAUDE.md'), 'utf-8');
 const ATOMO_DEV_PROTO = loadProtocol('atomo_dev');
 const PLANNING_PROTO = loadProtocol('planning'); // For zero-waste tool usage rules
@@ -254,6 +261,7 @@ PHASE 4: VERIFICATION & REPORTING
    - Acceptance: <confirmation of each criterion>
    \`\`\`
 5. DEPENDENCY CASCADE: If issue body contains "Blocks: #<number>", use 'gh issue edit <number> --remove-label blocked'.
+${DEV_HINT ? `\n---\n\n## REVIEWER HINTS (supplemental guidance, not protocol rules)\n${DEV_HINT}` : ''}
 `;
 
   await runAgent('AtomoDev', SYSTEM_PROMPT, {
