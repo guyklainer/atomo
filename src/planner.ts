@@ -63,7 +63,7 @@ function handleReviewIssues(): ReviewResult {
   console.log('[REVIEW] Checking needs-review issues...');
 
   const issues = ghTarget(
-    'issue list --search "is:open label:needs-review" --limit 1 --json number,title'
+    'issue list --search "is:open label:needs-review" --limit 50 --json number,title'
   );
 
   if (!issues || issues.length === 0) {
@@ -71,31 +71,42 @@ function handleReviewIssues(): ReviewResult {
     return { outcome: 'no-review-issues' };
   }
 
-  const issue: GitHubIssue = ghTarget(
-    `issue view ${issues[0].number} --json number,title,body,labels,comments`
-  );
-  console.log(`[REVIEW] Processing issue #${issue.number}...`);
+  let firstIssueNumber: number | null = null;
 
-  // Check for human reply
-  if (!hasHumanReplyAfterBot(issue.comments)) {
-    console.log(`[REVIEW] Issue #${issue.number}: No human reply yet, skipping.`);
-    return { outcome: 'waiting-for-reply', issueNumber: issue.number };
+  for (const listIssue of issues) {
+    const issue: GitHubIssue = ghTarget(
+      `issue view ${listIssue.number} --json number,title,body,labels,comments`
+    );
+    console.log(`[REVIEW] Processing issue #${issue.number}...`);
+    
+    if (firstIssueNumber === null) {
+      firstIssueNumber = issue.number;
+    }
+
+    // Check for human reply
+    if (!hasHumanReplyAfterBot(issue.comments)) {
+      console.log(`[REVIEW] Issue #${issue.number}: No human reply yet, skipping.`);
+      continue;
+    }
+
+    console.log(`[REVIEW] Issue #${issue.number}: Human reply detected.`);
+
+    // Approval — handle entirely in code
+    if (isApproval(issue.comments)) {
+      console.log(`[REVIEW] Issue #${issue.number}: APPROVED → Routing to Dev Agent.`);
+      ghTarget(`issue edit ${issue.number} --remove-label needs-review`);
+      ghTarget(`issue edit ${issue.number} --add-label for-dev`);
+      ghTarget(`issue comment ${issue.number} --body "🤖 Spec approved. Routing to Dev Agent."`);
+      return { outcome: 'approved', issueNumber: issue.number };
+    }
+
+    // Feedback — needs LLM to update the spec
+    console.log(`[REVIEW] Issue #${issue.number}: Feedback detected → Delegating to LLM for spec iteration.`);
+    return { outcome: 'feedback', issueNumber: issue.number, issue };
   }
 
-  console.log(`[REVIEW] Issue #${issue.number}: Human reply detected.`);
-
-  // Approval — handle entirely in code
-  if (isApproval(issue.comments)) {
-    console.log(`[REVIEW] Issue #${issue.number}: APPROVED → Routing to Dev Agent.`);
-    ghTarget(`issue edit ${issue.number} --remove-label needs-review`);
-    ghTarget(`issue edit ${issue.number} --add-label for-dev`);
-    ghTarget(`issue comment ${issue.number} --body "🤖 Spec approved. Routing to Dev Agent."`);
-    return { outcome: 'approved', issueNumber: issue.number };
-  }
-
-  // Feedback — needs LLM to update the spec
-  console.log(`[REVIEW] Issue #${issue.number}: Feedback detected → Delegating to LLM for spec iteration.`);
-  return { outcome: 'feedback', issueNumber: issue.number, issue };
+  // If none have a human reply, just fall back to waiting for the first one
+  return { outcome: 'waiting-for-reply', issueNumber: firstIssueNumber! };
 }
 
 // ─────────────────────────────────────────────────────────────────
