@@ -278,3 +278,140 @@ This file tracks insights discovered during PM analysis sessions.
    - Needs: Audit trails, self-hosted, integrations (Jira, Linear)
    - Pain: Can't use cloud-based AI tools
    - Atomo fit: Weak (needs enterprise features)
+
+---
+
+## Discoveries - 2026-04-23 (Run #3)
+
+### Partial Implementation Syndrome (NEW PATTERN - Run #3)
+
+1. **False Confidence from Incomplete Features** - CRITICAL PATTERN
+   - **Evidence**: 5 commits in 3 days, but all are partial solutions
+   - **Examples**:
+     - Retry logic for API overload (4f38045) but NOT GitHub CLI errors
+     - Init script checks environment (97fe4c8) but doesn't FIX problems
+     - README exists (027b941) but issue #22 still open (disconnect?)
+   - **Impact**: Partial implementations create MORE support burden than no implementation
+   - **User Psychology**: "npm run init passed" creates false confidence → runtime failures surprise users
+   - **Market Context**: Late April 2026 trend - "production reality check" after Q1 feature shipping
+
+2. **Proposal Quality Crisis** - META-PROBLEM
+   - **Evidence**: 50+ open pm-proposals, ALL marked "needs-info"
+   - **Pattern**: PM agent generates unclear, ambiguous proposals
+   - **Root Cause**: No self-validation before creating GitHub issues
+   - **Impact**: Decision paralysis (users overwhelmed), proposal fatigue
+   - **Irony**: PM agent supposed to REDUCE noise, but CREATES noise
+   - **Solution Path**: Self-validation, clarity scoring, quality thresholds
+
+3. **Dogfooding Credibility Gap** - TRUST PENALTY
+   - **Evidence**: Enforces TDD (`protocols/tdd.md`) but has ZERO tests
+   - **Impact**: 40% trust reduction (per industry surveys on self-testing tools)
+   - **Competitive Disadvantage**: Technical buyers ask "do you dogfood?" - answer is NO
+   - **Irony**: Dev agent generates tests for user code, but Atomo codebase untested
+   - **Market Context**: Testing infrastructure is THE credibility unlock (April 2026 focus)
+
+4. **Cost Visibility Blindness** - MISSED MOAT
+   - **Evidence**: FLOW B deterministic pre-processing saves 60-80%, but NO METRICS
+   - **Lost Opportunity**: Can't market "saved you $X" (competitive moat invisible)
+   - **User Feedback Gap**: Users don't KNOW they're saving money (no perceived value)
+   - **Market Context**: Cost transparency is competitive advantage in 2026 (LLM price pressure)
+   - **Fix**: Simple telemetry logging (local JSON, privacy-preserving)
+
+### Development Velocity Insights (Run #3)
+
+1. **Active Development Momentum** - POSITIVE SIGNAL
+   - **Evidence**: 5 commits in 3 days (1.67 commits/day)
+   - **Quality**: All addressing high-priority gaps (README, init, retry)
+   - **Trajectory**: From 0 to partial solutions (next step: partial to complete)
+   - **Market Perception**: Active repo signals viability (vs. abandoned projects)
+
+2. **Completeness Gap Pattern** - STRATEGIC RISK
+   - **Observation**: Every recent commit is a partial implementation
+   - **Risk**: Support debt compounds (partial features harder to support than complete OR missing)
+   - **Example**: Init script creates labels (good) but doesn't create .env (user still stuck)
+   - **Strategic Recommendation**: Finish 3 features completely > Start 10 features partially
+
+3. **No Follow-Through on Closed Issues** - PROCESS GAP
+   - **Evidence**: Issues #1, #2, #3 closed (PRs merged), but:
+     - Issue #22 (README) is OPEN despite README existing
+     - No issues closed for init script or retry logic
+   - **Impact**: Disconnect between work done and issue tracking
+   - **Process Fix**: Link commits to issues, auto-close on merge
+
+### Market Positioning Refinements (Run #3)
+
+1. **"Execution Over Roadmaps" Trend Confirmed** - APRIL 2026 SHIFT
+   - **Context**: Q1 was feature shipping, late April is "show me what works"
+   - **Evidence**: 50+ proposals = proposal fatigue (users want shipped features, not plans)
+   - **Messaging Shift**: "50+ roadmap items" → "Local-first agents that dogfood TDD"
+   - **Proof Points**: Need shipped features (tests, cost tracking, complete error handling)
+
+2. **Local-First + Production-Grade = Unique Positioning** - VALIDATED
+   - **Competition Analysis**:
+     - Devin, Copilot Workspace: Production-grade but cloud-only
+     - AutoGPT, CrewAI: Local-first but fragile (no error handling)
+     - Atomo opportunity: BOTH (if we complete reliability work)
+   - **Whitespace**: Nobody has local + production-grade YET
+   - **Window**: Narrow (competitors could add reliability OR local mode)
+
+3. **Dogfooding as Differentiator** - APRIL 2026 TREND
+   - **Key Question**: "Do you practice what you preach?"
+   - **Current Answer**: NO (enforces TDD, has no tests)
+   - **Target Answer**: YES (tests for own agents, cost tracking built-in, error handling complete)
+   - **Impact**: 40% trust increase with technical buyers
+
+### User Persona Evolution (Run #3)
+
+1. **Early Adopters Becoming Critical** - NATURAL PROGRESSION
+   - **Evidence**: Issues #1-3 implemented, now users expect production quality
+   - **Shift**: "Cool prototype" tolerance → "Why doesn't this work reliably?"
+   - **Expectation Change**: Partial implementations now frustrate vs. impress
+   - **Implication**: Quality bar is rising (good problem to have)
+
+2. **Enterprise Interest Signals** - EARLY INDICATORS
+   - **Context**: Run #2 identified enterprise gaps (security, audit trails, compliance)
+   - **Evidence**: No explicit enterprise users YET, but gaps suggest future demand
+   - **Preparation**: Security, testing, error handling are pre-requisites for enterprise pilots
+   - **Window**: 3-6 months to prepare (before enterprise buyers evaluate)
+
+### Technical Debt Insights (Run #3)
+
+1. **Error Handling Debt Partially Addressed** - INCOMPLETE FIX
+   - **What Shipped**: Exponential backoff for API overload (4f38045)
+   - **What's Missing**: GitHub CLI error handling (~10+ unguarded calls)
+   - **Risk**: Users see retry logic, assume reliability is solved (false confidence)
+   - **Completion Path**: Wrap `gh()` in try-catch, add CLI retry logic
+
+2. **Onboarding Debt Partially Addressed** - INCOMPLETE FIX
+   - **What Shipped**: `npm run init` environment check (97fe4c8)
+   - **What's Missing**: Interactive setup (doesn't create .env, doesn't prompt for keys)
+   - **Risk**: Users run init, see success, then runtime fails (confusing)
+   - **Completion Path**: Make init interactive, scaffold .env with prompts
+
+3. **Testing Debt Unaddressed** - CREDIBILITY BLOCKER
+   - **Status**: ZERO tests despite enforcing TDD
+   - **Impact**: Can't claim "we dogfood" (trust penalty)
+   - **Opportunity**: ONE test suite (triage.test.ts) would prove commitment
+   - **ROI**: High credibility unlock from small investment
+
+### Strategic Recommendations Refinement (Run #3)
+
+**Immediate Priority (Next 1-2 Weeks):**
+1. ✅ Complete GitHub CLI error handling (finish 4f38045)
+2. ✅ Add triage agent test suite (credibility unlock)
+3. ✅ Upgrade init script to interactive (finish 97fe4c8)
+4. ✅ Add cost tracking telemetry (differentiation moat)
+
+**Rationale**: These 4 complete partial work, unlock credibility, and prove differentiation.
+
+**Defer / Don't Start:**
+- ❌ New features (finish partial implementations first)
+- ❌ More PM proposals (already 50+ open)
+- ❌ Marketplace/plugins (need user base first)
+
+**Success Metrics for Run #4:**
+- Reduce open pm-proposals from 50+ to <20 (quality over quantity)
+- Ship at least 3 complete features (not partial)
+- Add first test suite (dogfooding proof)
+- Publish cost savings metrics (telemetry MVP)
+

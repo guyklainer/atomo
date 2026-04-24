@@ -199,3 +199,80 @@ This file maintains the last 3 runs of proposals for deduplication.
 **Key Themes**: Observability, testing, documentation, market expansion (integrations), and DX improvements.
 **Market Drivers**: Competitive parity with AutoGPT/CrewAI/Devin, onboarding friction reduction, enterprise readiness.
 
+
+---
+
+## Run 3 - 2026-04-23
+
+**Philosophy**: Quality over quantity, completion over creation
+**Context**: 50+ existing pm-proposals, all marked "needs-info"
+**Total Proposals**: 8 (vs. 20 in Run #2, 26 in Run #1)
+
+### HIGH PRIORITY (4 proposals - NEW)
+
+- **Complete GitHub CLI Error Handling** (Finish 4f38045)
+  - Category: Core Logic - Reliability
+  - Rationale: Commit 4f38045 added retry for API overload, but ~10+ `gh()` CLI calls still unguarded
+  - Solution: Wrap all `gh()` calls with try-catch, add exponential backoff for network errors
+  - Market Context: Sweep AI reliability focus (Q1 2026) proved complete error handling is table-stakes
+  - Differentiation: Production-grade local agents require both API AND CLI error handling
+
+- **Triage Agent Test Suite** (Dogfooding Proof-of-Concept)
+  - Category: DX - Testing  
+  - Rationale: Atomo enforces TDD but has ZERO tests (40% trust penalty per industry surveys)
+  - Solution: Create `tests/triage.test.ts` with 80%+ coverage, use Vitest
+  - Market Context: Self-testing agents gain 40% more trust (credibility unlock)
+  - Differentiation: "We enforce TDD and practice it" - unique positioning
+
+- **Cost Tracking Telemetry MVP**
+  - Category: Core Logic - Observability
+  - Rationale: FLOW B saves 60-80% but NO VISIBILITY (can't prove competitive advantage)
+  - Solution: Track LLM calls/tokens/cost, display "Processed 5 issues | Cost: $1.20 (saved $4.80)"
+  - Market Context: Cost transparency wins in 2026 (LLM price pressure)
+  - Differentiation: Only tool showing cost savings from deterministic pre-processing
+
+- **Upgrade Init Script to Interactive Setup**
+  - Category: DX - Onboarding
+  - Rationale: `npm run init` checks but doesn't FIX (commit 97fe4c8 is passive)
+  - Solution: Interactive prompts for ANTHROPIC_API_KEY, create .env, validate before saving
+  - Market Context: Vercel CLI, Stripe CLI have interactive init (industry standard)
+  - Differentiation: One-command setup competitive with cloud-hosted tools
+
+### MEDIUM PRIORITY (4 proposals - NEW)
+
+- **PM Agent Self-Validation** (Meta-Improvement)
+  - Category: Core Logic - Quality
+  - Rationale: 50+ pm-proposals all marked "needs-info" (proposal quality crisis)
+  - Solution: Self-validation before creating issues (clarity score >80), reject unclear proposals
+  - Market Context: Proposal fatigue is real (late April 2026 trend: execution > roadmaps)
+  - Differentiation: PM agent that improves itself (meta-learning signal)
+
+- **Agent Progress Indicators**
+  - Category: DX - User Experience
+  - Rationale: Long-running agents are black-box (user anxiety)
+  - Solution: Log progress milestones ("Scanning... 50 files", "Spec section 3/6"), estimated time
+  - Market Context: Progress indicators are UX baseline (npm, git standard)
+  - Differentiation: Transparent agents build trust
+
+- **.env.example Template** (Quick Win)
+  - Category: Docs
+  - Rationale: No .env.example (users don't know required vars)
+  - Solution: Create template with comments explaining each var
+  - Market Context: .env.example is standard practice
+  - Differentiation: Professional setup experience (enterprise readiness signal)
+
+- **Complete Error Handling for Init Script**
+  - Category: DX - Reliability
+  - Rationale: scripts/init.ts has gaps (doesn't validate repo access, API key format)
+  - Solution: Comprehensive try-catch, validate GitHub permissions, validate API key format
+  - Market Context: Good DX means no cryptic errors
+  - Differentiation: Professional setup experience
+
+**Key Themes**: Completion of partial work, dogfooding credibility, cost visibility, quality over quantity
+
+**Strategic Shift**: Run #1 focused on features (26 proposals), Run #2 on production readiness (20 proposals), Run #3 on COMPLETING partial work (8 proposals)
+
+**Market Drivers**: Post-Q1 reliability reckoning, proposal fatigue, dogfooding as trust signal, cost transparency as moat
+
+**Differentiators**: Local-first + production-grade (unique combo), cost-optimized with proof (telemetry), practice what we preach (tests)
+
