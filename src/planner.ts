@@ -11,6 +11,13 @@ const __dirname = path.dirname(__filename);
 
 const loadProtocol = (name: string) => fs.readFileSync(path.join(__dirname, `../protocols/${name}.md`), 'utf-8');
 
+const loadHint = (name: string): string => {
+  const hintPath = path.join(__dirname, `../reviewer_context/hints/${name}.md`);
+  return fs.existsSync(hintPath) ? fs.readFileSync(hintPath, 'utf-8') : '';
+};
+
+const PLANNER_HINT = loadHint('planner');
+
 const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '../CLAUDE.md'), 'utf-8');
 const REVIEW_PROTO = loadProtocol('review');
 const PLANNING_PROTO = loadProtocol('planning');
@@ -267,6 +274,7 @@ ${CONFIDENCE_PROTO}
 
 ${EPIC_PROTO}
 -------------------------------
+${PLANNER_HINT ? `\n---\n\n## REVIEWER HINTS (supplemental guidance, not protocol rules)\n${PLANNER_HINT}` : ''}
 `;
 
 // ─────────────────────────────────────────────────────────────────

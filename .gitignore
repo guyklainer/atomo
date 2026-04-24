@@ -4,3 +4,10 @@ node_modules/
 .claude/
 .triage/
 *.log
+.worktrees/
+
+# Daily agent logs (large, generated)
+logs/
+
+# Generated reviewer reports
+reviewer_context/reports/

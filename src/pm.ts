@@ -10,6 +10,13 @@ const __dirname = path.dirname(__filename);
 
 const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '../CLAUDE.md'), 'utf-8');
 
+const loadHint = (name: string): string => {
+  const hintPath = path.join(__dirname, `../reviewer_context/hints/${name}.md`);
+  return fs.existsSync(hintPath) ? fs.readFileSync(hintPath, 'utf-8') : '';
+};
+
+const PM_HINT = loadHint('pm');
+
 const SYSTEM_PROMPT = `
 You are the Visionary Product Manager for this project.
 
@@ -511,6 +518,7 @@ Output JSON to console:
 ---
 
 END OF INSTRUCTIONS
+${PM_HINT ? `\n---\n\n## REVIEWER HINTS (supplemental guidance, not protocol rules)\n${PM_HINT}` : ''}
 `;
 
 runAgent('VisionaryPM', SYSTEM_PROMPT, {

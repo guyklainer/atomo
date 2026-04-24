@@ -11,6 +11,13 @@ const targetCwd = process.env.TARGET_REPO_PATH || process.cwd();
 
 const loadProtocol = (name: string) => fs.readFileSync(path.join(__dirname, `../protocols/${name}.md`), 'utf-8');
 
+const loadHint = (name: string): string => {
+  const hintPath = path.join(__dirname, `../reviewer_context/hints/${name}.md`);
+  return fs.existsSync(hintPath) ? fs.readFileSync(hintPath, 'utf-8') : '';
+};
+
+const TRIAGE_HINT = loadHint('triage');
+
 const CLAUDE_MD = fs.readFileSync(path.join(__dirname, '../CLAUDE.md'), 'utf-8');
 const TRIAGE_PROTO = loadProtocol('triage');
 const CONFIDENCE_PROTO = loadProtocol('confidence_gate');
@@ -160,6 +167,7 @@ ${TRIAGE_PROTO}
 
 ${CONFIDENCE_PROTO}
 
+${TRIAGE_HINT ? `\n---\n\n## REVIEWER HINTS (supplemental guidance, not protocol rules)\n${TRIAGE_HINT}` : ''}
 `;
 
 /**
