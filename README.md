@@ -46,11 +46,8 @@ cd atomo
 npm install
 
 # Setup environment variables
-# Requires ANTHROPIC_API_KEY and TARGET_REPO_PATH
-cat << 'EOF' > .env
-ANTHROPIC_API_KEY=your_key_here
-TARGET_REPO_PATH=/absolute/path/to/target/project
-EOF
+cp .env.example .env
+# Edit .env and add your ANTHROPIC_API_KEY and TARGET_REPO_PATH
 
 # Init and validate your setup
 npm run init
