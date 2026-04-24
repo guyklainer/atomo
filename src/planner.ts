@@ -133,9 +133,9 @@ A human has left feedback on the tech spec. Your job:
 2. Read ALL comments on the issue for full context
 3. Identify the requested changes or clarifications from the most recent human feedback
 4. Update TECH_SPEC_${issue.number}.md incorporating the feedback (use Write tool to overwrite)
-5. Check if planner/issue-${issue.number} branch exists (git ls-remote --heads origin planner/issue-${issue.number})
-   - If branch exists: Checkout the branch, commit updated spec, force-push
-   - If branch does not exist: Create planner/issue-${issue.number} branch, commit spec, push
+5. Follow Phase 0 branching strategy to commit updated spec:
+   - If planner/issue-${issue.number} branch exists: Checkout, commit, force-push
+   - If not exists: Create branch, commit, push
 6. Post the updated spec as a GitHub comment in this format:
 
    🤖 **Tech Spec Updated (Review Iteration)**
@@ -150,11 +150,6 @@ A human has left feedback on the tech spec. Your job:
 
 7. Keep the needs-review label (do NOT remove or add any labels)
 
-Commands to use:
-- Check branch: git ls-remote --heads origin planner/issue-${issue.number}
-- If exists: git checkout planner/issue-${issue.number} && git add docs/plans/TECH_SPEC_${issue.number}.md && git commit -m "spec: Update tech spec for issue #${issue.number} (review iteration)" && git push -f origin planner/issue-${issue.number}
-- If not exists: git checkout -b planner/issue-${issue.number} && git add docs/plans/TECH_SPEC_${issue.number}.md && git commit -m "spec: Add tech spec for issue #${issue.number}" && git push -u origin planner/issue-${issue.number}
-- Post comment: gh issue comment ${issue.number} -F docs/plans/TECH_SPEC_${issue.number}.md (then append branch reference)
 
 Output a summary:
 {
@@ -243,15 +238,11 @@ Build the implementation blueprint following the Zero-Waste Protocol exactly.
 - INSTRUCTION: You must strictly adhere to the 'Technical Planning: The Zero-Waste Protocol' logic defined in the injected rules. Perform zero-waste codebase traversal and file generation according to those rules.
 - Write to: docs/plans/TECH_SPEC_<number>.md
 
-STEP 3.5: COMMIT TECH SPEC TO PLANNER BRANCH (NEW - Issue #7)
-After writing the TECH_SPEC file, you MUST create a planner feature branch and commit the spec:
-
-1. Create planner branch: git checkout -b planner/issue-<number>
-2. Stage the spec: git add docs/plans/TECH_SPEC_<number>.md
-3. Commit with co-author: git commit -m "spec: Add tech spec for issue #<number>
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
-4. Push to origin: git push -u origin planner/issue-<number>
+STEP 3.5: COMMIT TECH SPEC TO PLANNER BRANCH
+After writing the TECH_SPEC file, follow Phase 0 branching strategy (Planner workflow from ATOMO_DEV_PROTO above):
+- Create planner/issue-<number> branch
+- Commit docs/plans/TECH_SPEC_<number>.md with co-author tag
+- Push to origin
 
 If any git command fails, log the error but continue to STEP 4.
 
