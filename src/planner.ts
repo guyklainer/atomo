@@ -3,7 +3,14 @@ import fs from 'fs';
 import path from 'path';
 import { runAgent } from './runner.js';
 import { fileURLToPath } from 'url';
-import { gh, hasHumanReplyAfterBot, type GitHubIssue } from './github.js';
+import {
+  gh,
+  hasHumanReplyAfterBot,
+  ensureLatestMain,
+  restorePreviousState,
+  type GitState,
+  type GitHubIssue
+} from './github.js';
 
 // Fix for __dirname in ESM environments run via tsx
 const __filename = fileURLToPath(import.meta.url);
@@ -78,7 +85,7 @@ function handleReviewIssues(): ReviewResult {
       `issue view ${listIssue.number} --json number,title,body,labels,comments`
     );
     console.log(`[REVIEW] Processing issue #${issue.number}...`);
-    
+
     if (firstIssueNumber === null) {
       firstIssueNumber = issue.number;
     }
@@ -126,20 +133,28 @@ A human has left feedback on the tech spec. Your job:
 2. Read ALL comments on the issue for full context
 3. Identify the requested changes or clarifications from the most recent human feedback
 4. Update TECH_SPEC_${issue.number}.md incorporating the feedback (use Write tool to overwrite)
-5. Post the updated spec as a GitHub comment in this format:
+5. Check if planner/issue-${issue.number} branch exists (git ls-remote --heads origin planner/issue-${issue.number})
+   - If branch exists: Checkout the branch, commit updated spec, force-push
+   - If branch does not exist: Create planner/issue-${issue.number} branch, commit spec, push
+6. Post the updated spec as a GitHub comment in this format:
 
    🤖 **Tech Spec Updated (Review Iteration)**
 
    [Full updated TECH_SPEC_${issue.number}.md content]
 
+   **Planner Branch**: \`planner/issue-${issue.number}\`
+
    ---
 
    Reply "APPROVED" when ready to proceed to implementation, or provide further feedback.
 
-6. Keep the needs-review label (do NOT remove or add any labels)
+7. Keep the needs-review label (do NOT remove or add any labels)
 
-Use this command to post: gh issue comment ${issue.number} -F docs/plans/TECH_SPEC_${issue.number}.md
-Then append the review iteration footer separately if needed.
+Commands to use:
+- Check branch: git ls-remote --heads origin planner/issue-${issue.number}
+- If exists: git checkout planner/issue-${issue.number} && git add docs/plans/TECH_SPEC_${issue.number}.md && git commit -m "spec: Update tech spec for issue #${issue.number} (review iteration)" && git push -f origin planner/issue-${issue.number}
+- If not exists: git checkout -b planner/issue-${issue.number} && git add docs/plans/TECH_SPEC_${issue.number}.md && git commit -m "spec: Add tech spec for issue #${issue.number}" && git push -u origin planner/issue-${issue.number}
+- Post comment: gh issue comment ${issue.number} -F docs/plans/TECH_SPEC_${issue.number}.md (then append branch reference)
 
 Output a summary:
 {
@@ -228,6 +243,18 @@ Build the implementation blueprint following the Zero-Waste Protocol exactly.
 - INSTRUCTION: You must strictly adhere to the 'Technical Planning: The Zero-Waste Protocol' logic defined in the injected rules. Perform zero-waste codebase traversal and file generation according to those rules.
 - Write to: docs/plans/TECH_SPEC_<number>.md
 
+STEP 3.5: COMMIT TECH SPEC TO PLANNER BRANCH (NEW - Issue #7)
+After writing the TECH_SPEC file, you MUST create a planner feature branch and commit the spec:
+
+1. Create planner branch: git checkout -b planner/issue-<number>
+2. Stage the spec: git add docs/plans/TECH_SPEC_<number>.md
+3. Commit with co-author: git commit -m "spec: Add tech spec for issue #<number>
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+4. Push to origin: git push -u origin planner/issue-<number>
+
+If any git command fails, log the error but continue to STEP 4.
+
 STEP 4: POST SPEC FOR REVIEW
 Combine the tech spec and clarification questions into a single GitHub comment.
 
@@ -238,6 +265,8 @@ Use the Bash tool to read the spec file and post it:
    🤖 **Tech Spec Ready for Review**
 
    [Paste full TECH_SPEC_<number>.md content here]
+
+   **Planner Branch**: \`planner/issue-<number>\`
 
    ---
 
@@ -262,6 +291,7 @@ Output:
   "action": "spec-posted-for-review",
   "confidenceScore": <score>,
   "specFile": "docs/plans/TECH_SPEC_<number>.md",
+  "plannerBranch": "planner/issue-<number>",
   "clarificationQuestions": ["Q1", "Q2", "Q3"],
   "filesChanged": ["list of files identified in the spec"]
 }
@@ -312,43 +342,69 @@ const agentOptions = {
 };
 
 (async () => {
-  // Step 1: Deterministic review pre-processing
-  let reviewResult: ReviewResult;
+  // === PHASE 0: Repository State Validation (Issue #7) ===
+  let gitState: GitState | undefined;
+  console.log('[PLANNER] Validating repository state...');
+  const validation = ensureLatestMain(targetCwd);
+
+  if (!validation.success) {
+    console.error('[PLANNER] Git validation failed:', validation.message);
+    console.error('[PLANNER] ABORTING. Please resolve git state manually and re-run.');
+    process.exit(1);
+  }
+
+  gitState = validation.state!;
+  console.log('[PLANNER] ✅ Git validation passed. Proceeding with planning...');
+
   try {
-    reviewResult = handleReviewIssues();
-  } catch (error) {
-    console.error('[REVIEW] Error during review handling:', error);
-    // Fall through to PLANNING if review check fails
-    reviewResult = { outcome: 'no-review-issues' };
-  }
+    // Step 1: Deterministic review pre-processing
+    let reviewResult: ReviewResult;
+    try {
+      reviewResult = handleReviewIssues();
+    } catch (error) {
+      console.error('[REVIEW] Error during review handling:', error);
+      // Fall through to PLANNING if review check fails
+      reviewResult = { outcome: 'no-review-issues' };
+    }
 
-  // Step 2: Route based on review result
-  switch (reviewResult.outcome) {
-    case 'approved':
-      // Handled entirely in code — done
-      console.log(`[REVIEW] Issue #${reviewResult.issueNumber} approved and routed. Exiting.`);
+    // Step 2: Route based on review result
+    switch (reviewResult.outcome) {
+      case 'approved':
+        // Handled entirely in code — done
+        console.log(`[REVIEW] Issue #${reviewResult.issueNumber} approved and routed. Exiting.`);
+        return;
+
+      case 'feedback':
+        // Needs LLM to iterate on spec — skip PLANNING
+        console.log(`[REVIEW] Invoking LLM for spec iteration on issue #${reviewResult.issueNumber}...`);
+        await runAgent('Architect (Review)', buildReviewPrompt(reviewResult.issue), agentOptions);
+        return;
+
+      case 'waiting-for-reply':
+        // No actionable reviews — fall through to PLANNING
+        console.log(`[REVIEW] Issue #${reviewResult.issueNumber} waiting for reply. Proceeding to PLANNING.`);
+        break;
+
+      case 'no-review-issues':
+        // No review issues at all — fall through to PLANNING
+        break;
+    }
+
+    // Step 3: PLANNING flow (only reached when no reviews needed attention)
+    if (!hasTriagedIssues()) {
+      console.log('[PLANNING] No triaged issues found. Skipping LLM.');
       return;
-
-    case 'feedback':
-      // Needs LLM to iterate on spec — skip PLANNING
-      console.log(`[REVIEW] Invoking LLM for spec iteration on issue #${reviewResult.issueNumber}...`);
-      await runAgent('Architect (Review)', buildReviewPrompt(reviewResult.issue), agentOptions);
-      return;
-
-    case 'waiting-for-reply':
-      // No actionable reviews — fall through to PLANNING
-      console.log(`[REVIEW] Issue #${reviewResult.issueNumber} waiting for reply. Proceeding to PLANNING.`);
-      break;
-
-    case 'no-review-issues':
-      // No review issues at all — fall through to PLANNING
-      break;
+    }
+    await runAgent('Architect (Planning)', PLANNING_PROMPT, agentOptions);
+  } finally {
+    // === CLEANUP: Restore original state (Issue #7) ===
+    if (gitState) {
+      console.log('[PLANNER] Restoring original git state...');
+      const restoration = restorePreviousState(gitState, targetCwd);
+      if (!restoration.success) {
+        console.warn('[PLANNER] Warning: Failed to restore git state:', restoration.message);
+        console.warn('[PLANNER] You may need to manually checkout your original branch and restore stashed changes.');
+      }
+    }
   }
-
-  // Step 3: PLANNING flow (only reached when no reviews needed attention)
-  if (!hasTriagedIssues()) {
-    console.log('[PLANNING] No triaged issues found. Skipping LLM.');
-    return;
-  }
-  await runAgent('Architect (Planning)', PLANNING_PROMPT, agentOptions);
 })().catch(console.error);

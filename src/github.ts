@@ -141,3 +141,262 @@ export function extractIssueNumber(branchName: string, body: string): number | n
 
   return null;
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Git State Management Utilities (Issue #7)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Represents the git state before agent work begins.
+ */
+export interface GitState {
+  originalBranch: string;
+  hadUncommittedChanges: boolean;
+  stashCreated: boolean;
+}
+
+/**
+ * Ensure the repository is on the latest main branch (or specified base branch).
+ * Records the original state for later restoration.
+ */
+export function ensureLatestMain(cwd?: string, baseBranch: string = 'main'): {
+  success: boolean;
+  message: string;
+  state?: GitState
+} {
+  const targetCwd = cwd || process.env.TARGET_REPO_PATH || process.cwd();
+
+  try {
+    // 1. Get current branch
+    const originalBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+      encoding: 'utf-8',
+      cwd: targetCwd
+    }).trim();
+
+    // 2. Check for uncommitted changes
+    const statusOutput = execSync('git status --porcelain', {
+      encoding: 'utf-8',
+      cwd: targetCwd
+    }).trim();
+
+    const hadUncommittedChanges = statusOutput.length > 0;
+    let stashCreated = false;
+
+    // 3. If not on target base branch and has uncommitted changes, stash them
+    if (originalBranch !== baseBranch && hadUncommittedChanges) {
+      console.log(`[Git Validation] Stashing uncommitted changes on ${originalBranch}...`);
+      execSync('git stash push -m "Atomo agent: auto-stash before validation"', {
+        cwd: targetCwd,
+        stdio: 'inherit'
+      });
+      stashCreated = true;
+    }
+
+    // 4. If not on base branch, checkout to it
+    if (originalBranch !== baseBranch) {
+      console.log(`[Git Validation] Checking out ${baseBranch} branch...`);
+      execSync(`git checkout ${baseBranch}`, {
+        cwd: targetCwd,
+        stdio: 'inherit'
+      });
+    }
+
+    // 5. Fetch latest from origin
+    console.log(`[Git Validation] Fetching latest from origin/${baseBranch}...`);
+    execSync(`git fetch origin ${baseBranch}`, {
+      cwd: targetCwd,
+      stdio: 'inherit'
+    });
+
+    // 6. Check if local is behind remote
+    const localCommit = execSync(`git rev-parse ${baseBranch}`, {
+      encoding: 'utf-8',
+      cwd: targetCwd
+    }).trim();
+
+    const remoteCommit = execSync(`git rev-parse origin/${baseBranch}`, {
+      encoding: 'utf-8',
+      cwd: targetCwd
+    }).trim();
+
+    if (localCommit !== remoteCommit) {
+      console.log(`[Git Validation] Pulling latest changes from origin/${baseBranch}...`);
+      execSync(`git pull origin ${baseBranch}`, {
+        cwd: targetCwd,
+        stdio: 'inherit'
+      });
+    } else {
+      console.log(`[Git Validation] Already up-to-date with origin/${baseBranch}.`);
+    }
+
+    return {
+      success: true,
+      message: `Repository is now on the latest ${baseBranch} branch.`,
+      state: {
+        originalBranch,
+        hadUncommittedChanges,
+        stashCreated
+      }
+    };
+
+  } catch (error: any) {
+    return {
+      success: false,
+      message: `Git validation failed: ${error.message}`
+    };
+  }
+}
+
+/**
+ * Create a new feature branch from the current branch.
+ */
+export function createFeatureBranch(branchName: string, cwd?: string): {
+  success: boolean;
+  message: string
+} {
+  const targetCwd = cwd || process.env.TARGET_REPO_PATH || process.cwd();
+
+  try {
+    console.log(`[Git] Creating feature branch: ${branchName}...`);
+    execSync(`git checkout -b ${branchName}`, {
+      cwd: targetCwd,
+      stdio: 'inherit'
+    });
+
+    return {
+      success: true,
+      message: `Branch ${branchName} created successfully.`
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: `Failed to create branch ${branchName}: ${error.message}`
+    };
+  }
+}
+
+/**
+ * Commit and push files to the current branch.
+ */
+export function commitAndPush(
+  message: string,
+  files: string[],
+  cwd?: string
+): { success: boolean; message: string } {
+  const targetCwd = cwd || process.env.TARGET_REPO_PATH || process.cwd();
+
+  try {
+    // Add files
+    files.forEach(file => {
+      console.log(`[Git] Adding file: ${file}...`);
+      execSync(`git add ${file}`, {
+        cwd: targetCwd,
+        stdio: 'inherit'
+      });
+    });
+
+    // Commit
+    console.log(`[Git] Committing: ${message}...`);
+    execSync(`git commit -m "${message}\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"`, {
+      cwd: targetCwd,
+      stdio: 'inherit'
+    });
+
+    // Push to origin
+    const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+      encoding: 'utf-8',
+      cwd: targetCwd
+    }).trim();
+
+    console.log(`[Git] Pushing to origin/${currentBranch}...`);
+    execSync(`git push -u origin ${currentBranch}`, {
+      cwd: targetCwd,
+      stdio: 'inherit'
+    });
+
+    return {
+      success: true,
+      message: `Committed and pushed to origin/${currentBranch}.`
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: `Failed to commit/push: ${error.message}`
+    };
+  }
+}
+
+/**
+ * Check if a remote branch exists.
+ */
+export function remoteBranchExists(branchName: string, cwd?: string): boolean {
+  const targetCwd = cwd || process.env.TARGET_REPO_PATH || process.cwd();
+
+  try {
+    execSync(`git fetch origin ${branchName}`, {
+      cwd: targetCwd,
+      stdio: 'pipe' // silence output
+    });
+
+    const result = execSync(`git ls-remote --heads origin ${branchName}`, {
+      encoding: 'utf-8',
+      cwd: targetCwd
+    }).trim();
+
+    return result.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Restore the repository to its original state.
+ */
+export function restorePreviousState(state: GitState, cwd?: string): {
+  success: boolean;
+  message: string
+} {
+  const targetCwd = cwd || process.env.TARGET_REPO_PATH || process.cwd();
+
+  try {
+    // 1. Checkout back to original branch
+    if (state.originalBranch) {
+      console.log(`[Git Cleanup] Returning to original branch: ${state.originalBranch}...`);
+      execSync(`git checkout ${state.originalBranch}`, {
+        cwd: targetCwd,
+        stdio: 'inherit'
+      });
+    }
+
+    // 2. Restore stashed changes
+    if (state.stashCreated) {
+      console.log(`[Git Cleanup] Restoring stashed changes...`);
+      try {
+        execSync('git stash pop', {
+          cwd: targetCwd,
+          stdio: 'inherit'
+        });
+      } catch (error: any) {
+        if (error.message.includes('CONFLICT')) {
+          return {
+            success: false,
+            message: 'Stash restoration failed due to conflicts. Your stashed changes are preserved. Run `git stash list` to see them, then manually resolve conflicts with `git stash pop`.'
+          };
+        }
+        throw error;
+      }
+    }
+
+    console.log(`[Git Cleanup] ✅ Repository restored to original state.`);
+    return {
+      success: true,
+      message: 'Repository restored successfully.'
+    };
+
+  } catch (error: any) {
+    return {
+      success: false,
+      message: `Failed to restore git state: ${error.message}\nManual intervention may be required.`
+    };
+  }
+}
