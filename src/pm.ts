@@ -190,30 +190,30 @@ STEP 3: EXTERNAL MARKET RESEARCH
 
 3.2 Domain-Specific Market Analysis (using internal reasoning):
     - Based on the domain identified in STEP 2, apply your general industry knowledge
-    - Identify 3-5 leading products, competitors, or successful projects in that specific domain
-    - Analyze what patterns, features, or capabilities make them industry leaders
+    - Identify 5-7 leading products, competitors, or successful projects in that specific domain
+    - For EACH competitor, analyze:
+      * Their core value proposition and how it differs from this project
+      * Their most-praised features (think: what do users switch TO them for?)
+      * Their most-criticized gaps (think: what do users leave them for?)
+      * Their recent trajectory (what did they ship in the last 6-12 months?)
     - Ask: "What would users in this domain expect from a mature product?"
-    - Note: Examples below illustrate the approach for ANY domain:
-      * If domain is task management: Consider patterns from Asana, Notion, Linear
-      * If domain is autonomous agents: Consider AutoGPT, LangChain, CrewAI approaches
-      * If domain is developer tools: Consider GitHub Copilot, Cursor feature sets
-      * If domain is e-commerce: Consider Shopify, WooCommerce capabilities
-      * If domain is analytics: Consider Mixpanel, Amplitude patterns
-      * [Any other domain]: Research and apply relevant competitive landscape knowledge
 
-3.3 Competitor Feature Analysis (reasoning-based):
+3.3 Competitor Feature Analysis (deep reasoning):
     - Question: "What do leading products in [domain] offer that this doesn't?"
     - Question: "What emerging patterns in [domain] are becoming table-stakes?"
     - Question: "What adjacent domains could inform innovation here?"
+    - Question: "What specific user workflows are competitors enabling that we can't support?"
+    - Question: "Where are competitors over-engineering, leaving room for a simpler approach?"
+    - For each gap identified, assess: is this a GAP (users expect it) or a DIFFERENTIATOR OPPORTUNITY (nobody does it well yet)?
 
 3.4 Industry Trend Synthesis:
-    - Identify: 2-3 macro trends relevant to the discovered domain
+    - Identify: 3-5 macro trends relevant to the discovered domain (not just 2-3)
+    - For each trend, reason about:
+      * How mature is this trend? (emerging / growing / table-stakes)
+      * Which competitors are capitalizing on it?
+      * What's the adoption curve look like for this project's user base?
+      * What would a first-mover advantage look like here?
     - Consider: What's emerging in this space? What are users demanding more of?
-    - Examples (illustrative only - adapt to actual domain):
-      * Autonomous agents: Multi-agent collaboration, memory/context persistence
-      * Developer tools: Context awareness, AI-native workflows
-      * Task management: Async-first features, AI-powered prioritization
-      * [Adapt based on actual domain discovered in STEP 2]
 
 3.5 Update external_research.md (timestamped entries, keep last 5):
     - Append new research with: ## Research - [Date]
@@ -256,11 +256,17 @@ STEP 5: LIMITATION DETECTION (What's missing or weak?)
     - Compare: External research findings (STEP 3) vs. current capabilities (STEP 4)
     - Identify: Missing modules that competitors/industry have
     - Ask: What would a user in this domain expect that's absent?
+    - For each gap, classify:
+      * **Blocking gap**: Users cannot achieve a core workflow without this
+      * **Friction gap**: Users CAN do it, but the experience is painful or manual
+      * **Aspirational gap**: Users don't expect this yet, but it would delight them
+    - Prioritize blocking > friction > aspirational for proposal generation
 
 5.3 Experience Gaps:
     - Grep: Error handling patterns (are they user-friendly?)
     - Bash: test -d docs && echo "docs exist" || echo "no docs directory"
     - Assess: Production-readiness, DX quality
+    - Walk through 2-3 key user journeys end-to-end — where does the experience break down?
 
 5.4 Update discoveries.md (APPEND-ONLY with dates):
     - Append: ## Discoveries - [Date]
@@ -293,26 +299,39 @@ STEP 6: MARKET SYNTHESIS (What would move the needle?)
 
 STEP 7: IDEA GENERATION (Propose new features)
 
-7.1 Generate proposals across categories:
+HARD LIMIT: You MUST produce exactly 2-3 proposals per run. No more, no fewer.
+Quality over quantity — each proposal must be deeply researched and represent a significant impact opportunity.
+
+7.1 Generate a LONG LIST (internal only, 8-12 rough ideas) across categories:
     - **Core Logic**: New capabilities, workflows, algorithms
     - **API**: New endpoints, integrations, data models
     - **Docs**: Tutorials, API docs, contribution guides
     - **DX (Developer Experience)**: Tooling, debugging, testing infrastructure
 
-7.2 For each idea, include:
+7.2 Ruthlessly filter the long list down to the TOP 2-3 using this scoring:
+    - **Impact magnitude**: Does this unlock a new user segment, or just polish an edge?
+    - **Strategic leverage**: Does this compound with existing capabilities or is it isolated?
+    - **Timing urgency**: Is the market moving here NOW, or is this a "nice to have someday"?
+    - **Feasibility confidence**: Can you describe a concrete implementation path, or is it hand-wavy?
+    - DISCARD any idea that scores low on Impact or Strategic leverage — those are filler.
+
+7.3 For each of the 2-3 SELECTED ideas, produce a DEEP proposal:
     - **Title**: Clear, specific feature name
-    - **Rationale**: WHY this matters (cite external research, user pain, PMF alignment)
-    - **Impact**: WHO benefits (new users, existing power users, developers)
-    - **Market Context**: Reference competitor feature or industry trend
+    - **Rationale**: WHY this matters — cite specific external research findings, user pain points, and PMF alignment. Not generic statements — name the competitor feature, the industry trend, the user scenario.
+    - **Impact**: WHO benefits and HOW — be specific about the user journey change
+    - **Market Context**: Reference specific competitor feature or industry trend with detail
+    - **Implementation Sketch**: High-level approach (key components, integration points, rough scope)
+    - **Success Signal**: How would you know this feature is working? What metric or user behavior changes?
     - **Priority**: High/Medium/Low (use ICE framework: Impact×Confidence/Effort)
 
-7.3 Deduplication Check (ENHANCED):
+7.4 Deduplication Check (ENHANCED):
     - Compare against: Previous ROADMAP.md items (from STEP 1.4)
     - Compare against: proposal_archive.md (from STEP 1.2)
     - Compare against: Closed issues (from STEP 1.3) - CRITICAL: Skip if similar feature was closed by user
     - Compare against: Open issues (from STEP 1.3) - Skip if already exists as open issue
     - Compare against: Open/closed PRs (from STEP 1.3)
     - Action: Skip if already proposed/implemented; refine if similar but evolved
+    - If deduplication removes a selected idea, DO NOT backfill from the long list unless the replacement is equally strong
 
 ---
 
@@ -408,8 +427,8 @@ STEP 9.5: CREATE GITHUB ISSUES FOR PROPOSALS
 
 IMPORTANT: For each feature proposal generated in STEP 7, create a GitHub issue so the user can track, review, and accept/reject them individually.
 
-9.5.1 For each proposal (High, Medium, Low priority across all categories):
-    - Extract: Feature title, rationale, impact, market context, priority, category
+9.5.1 For each of the 2-3 selected proposals:
+    - Extract: Feature title, rationale, impact, market context, implementation sketch, success signal, priority, category
 
     - Construct issue body (use HEREDOC for proper formatting):
       \`\`\`
@@ -417,13 +436,19 @@ IMPORTANT: For each feature proposal generated in STEP 7, create a GitHub issue 
       **Category**: [Core Logic/API/Docs/DX]
 
       ## Rationale
-      [Why this matters for PMF]
+      [Deep explanation of why this matters for PMF — cite specific competitors, trends, user scenarios]
 
       ## Impact
-      [Who benefits and how]
+      [Who benefits, how their workflow changes, what becomes possible]
 
       ## Market Context
-      [Competitor/industry reference]
+      [Specific competitor features, industry trends, and where this positions us]
+
+      ## Implementation Sketch
+      [High-level approach: key components, integration points, rough scope]
+
+      ## Success Signal
+      [How we'd know this feature is working — metric or user behavior change]
 
       ---
 
@@ -462,7 +487,8 @@ Output JSON to console:
   "contextFilesUpdated": ["capabilities.md", "discoveries.md", ...],
   "externalResearchConducted": true/false,
   "categoriesAnalyzed": ["Core Logic", "API", "Docs", "DX"],
-  "totalProposals": <count>,
+  "totalProposals": "<2-3, per hard limit>",
+  "longListConsidered": "<8-12 ideas evaluated before filtering>",
   "breakdown": {
     "high": <count>,
     "medium": <count>,
