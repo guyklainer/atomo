@@ -278,6 +278,18 @@ ${PLANNER_HINT ? `\n---\n\n## REVIEWER HINTS (supplemental guidance, not protoco
 `;
 
 // ─────────────────────────────────────────────────────────────────
+// Deterministic planning pre-check (runs before LLM)
+// ─────────────────────────────────────────────────────────────────
+
+function hasTriagedIssues(): boolean {
+  console.log('[PLANNING] Checking for triaged issues...');
+  const issues = ghTarget(
+    'issue list --search "is:open label:triaged -label:for-dev -label:needs-review -label:needs-info" --limit 1 --json number,title'
+  );
+  return Array.isArray(issues) && issues.length > 0;
+}
+
+// ─────────────────────────────────────────────────────────────────
 // MAIN EXECUTION: Run REVIEW (deterministic), then PLANNING (LLM)
 // ─────────────────────────────────────────────────────────────────
 
@@ -323,5 +335,9 @@ const agentOptions = {
   }
 
   // Step 3: PLANNING flow (only reached when no reviews needed attention)
+  if (!hasTriagedIssues()) {
+    console.log('[PLANNING] No triaged issues found. Skipping LLM.');
+    return;
+  }
   await runAgent('Architect (Planning)', PLANNING_PROMPT, agentOptions);
 })().catch(console.error);
