@@ -1,0 +1,35 @@
+{
+  "triage": {
+    "needs_info_rate":    { "max": 0.35, "window_days": 7 },
+    "tokens_per_issue":   { "max": 6000, "window_days": 7 },
+    "tool_calls_per_issue": { "max": 15, "window_days": 7 },
+    "error_rate":         { "max": 0.20, "window_days": 7 }
+  },
+  "planner": {
+    "first_pass_approval_rate": { "min": 0.50, "window_days": 14 },
+    "tokens_per_spec":          { "max": 25000, "window_days": 7 },
+    "tool_calls_per_spec":      { "max": 40, "window_days": 7 },
+    "feedback_loop_depth":      { "max": 2.0, "window_days": 14 }
+  },
+  "dev": {
+    "pr_merge_rate":      { "min": 0.70, "window_days": 30 },
+    "tokens_per_pr":      { "max": 60000, "window_days": 14 },
+    "error_rate":         { "max": 0.20, "window_days": 7 }
+  },
+  "pm": {
+    "proposal_pass_rate": { "min": 0.30, "window_days": 7 },
+    "tokens_per_proposal":{ "max": 15000, "window_days": 7 },
+    "error_rate":         { "max": 0.20, "window_days": 7 }
+  },
+  "all": {
+    "run_completion_rate":{ "min": 0.90, "window_days": 7 },
+    "cost_per_run_usd":   { "max": 2.00, "window_days": 7 }
+  },
+  "model_pricing": {
+    "input_per_1k_tokens": 0.003,
+    "output_per_1k_tokens": 0.015,
+    "note": "USD. Update when model changes."
+  },
+  "pr_cooldown_days": 14,
+  "pr_worsening_threshold": 0.20
+}
