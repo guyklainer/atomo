@@ -10,4 +10,5 @@ node_modules/
 logs/
 
 # Generated reviewer reports
-reviewer_context/reports/
+reviewer_context/reports//coverage
+coverage/
