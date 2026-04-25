@@ -1,0 +1,18 @@
+{
+  "auto_approve_threshold": 85,
+  "critical_threshold": 70,
+  "weights": {
+    "scope_clarity": 25,
+    "edge_case_coverage": 20,
+    "pattern_consistency": 20,
+    "implementation_safety": 15,
+    "product_alignment": 10,
+    "alternative_approaches": 10
+  },
+  "severity_multipliers": {
+    "critical": 0.0,
+    "major": 0.5,
+    "minor": 0.8,
+    "nitpick": 1.0
+  }
+}
