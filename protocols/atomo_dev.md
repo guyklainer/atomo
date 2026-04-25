@@ -27,7 +27,7 @@ Atomo follows a rigid **"Observe → Align → Execute → Cleanup"** loop for e
 4. Implement changes per TECH_SPEC
 5. Commit to `atomo/issue-{N}` branch
 6. Push branch to origin
-7. Create PR: `atomo/issue-{N}` → `main` (NOT to planner branch)
+7. Create PR: `atomo/issue-{N}` → `main` (NOT to planner branch). The PR body MUST include "Closes #{N}" to automatically link the issue.
 8. Restore user's original branch/stash
 
 #### Pre-Flight Validation Steps

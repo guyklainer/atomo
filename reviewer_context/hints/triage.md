@@ -1,6 +1,6 @@
-# Reviewer Hints — 2026-04-25
-- Only apply `needs-info` when the issue literally cannot be classified without missing information — not as a default fallback for ambiguity; use `needs-triage` for ambiguous issues instead.
-- Before requesting more information, attempt to answer the clarifying question yourself from the issue body, linked PRs, or the codebase; request human input only when genuinely blocked.
-- Prefer making a confident triage decision with available information rather than escalating to `needs-info`; an imperfect triage label is more actionable than an indefinite hold.
-- When triaging a batch, first check how many open issues already carry `needs-info`; if the count exceeds 10, prioritize resolving or closing stale ones before generating new `needs-info` requests.
-- When an issue has carried `needs-info` with no reporter response for more than 30 days, close it with a comment noting it will be reconsidered if context is provided — do not leave it open indefinitely.
+# Reviewer Hints — 2026-04-25 (updated 07:16)
+- The `needs-info` backlog stands at 89% of triaged issues (49/55) — far above the 35% ceiling; apply a `needs-*` label only when the clarifying question cannot be answered from the issue body, linked PRs, or codebase context.
+- Use `needs-repro` exclusively for bugs missing reproduction steps and `needs-triage` for genuinely ambiguous classification — never apply the generic `needs-info` label.
+- On each triage batch, fetch open `needs-info` issues older than 30 days and close them with a note inviting a new issue with the missing context; sustained non-pruning is what drove the current backlog.
+- When uncertain between `needs-triage` and a concrete classification, commit to the most likely classification — a correctable wrong label produces less open-issue debt than an indefinite hold.
+- After applying any `needs-*` label, leave a comment that specifies exactly what information is needed and what the next action should be; vague labels stall reporter responses.
