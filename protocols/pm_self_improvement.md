@@ -150,6 +150,20 @@ Every run, after revalidation, before generating new proposals.
 
 ---
 
+## PHASE 3.5: Exploration Budget Enforcement
+
+### Purpose
+Cap total token consumption during the discovery + ideation phases. A single PM run must not exceed 15,000 combined tokens (input + output).
+
+### Rules
+
+1. **Tool call budget**: Stop discovery after **25 total tool calls** across all phases (Bash, Read, Grep, Glob combined). At call #25, cease exploration and proceed to STEP 7 (Idea Generation) with data gathered so far.
+2. **Proposal target**: Generate **1–3 proposals** per run. Do NOT enumerate every possible improvement — depth over breadth.
+3. **Write-up length**: Each proposal must include ONLY the three rubric sections (Problem Clarity, Solution Specificity, Success Criteria). No supplemental market research sections, no rationale appendices.
+4. **Self-check before PHASE 4**: Confirm total tool calls are ≤ 25. If over budget, drop the lowest-priority proposals before proceeding to validation.
+
+---
+
 ## PHASE 4: Pre-Validation
 
 ### Purpose

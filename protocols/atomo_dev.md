@@ -41,6 +41,7 @@ Atomo follows a rigid **"Observe → Align → Execute → Cleanup"** loop for e
    - **Structural errors** (merge conflicts, diverged history, missing branch): Abort immediately with a clear error message. Do NOT proceed.
    - **Transient errors** (network timeout, SSH handshake failure, `git fetch` non-zero exit): Retry the failing command exactly once with a 5-second pause. If the retry fails, abort with error message.
    - In all abort cases, restore the user's original branch/stash state before exiting.
+   - **Required abort message format**: `[AtomoDev] ABORT | issue: #{N} | reason: <one-line cause> | category: structural|transient | STATUS: ABORTED`. This ensures the run is distinguishable from an unrecoverable crash in telemetry.
 
 #### State Restoration (Post-Work Cleanup)
 
