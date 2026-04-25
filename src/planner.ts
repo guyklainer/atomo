@@ -6,9 +6,8 @@ import { fileURLToPath } from 'url';
 import {
   gh,
   hasHumanReplyAfterBot,
-  ensureLatestMain,
-  restorePreviousState,
-  type GitState,
+  setupAgentWorktree,
+  cleanupAgentWorktree,
   type GitHubIssue
 } from './github.js';
 
@@ -325,77 +324,79 @@ function hasTriagedIssues(): boolean {
 // MAIN EXECUTION: Run REVIEW (deterministic), then PLANNING (LLM)
 // ─────────────────────────────────────────────────────────────────
 
-const agentOptions = {
-  cwd: process.env.TARGET_REPO_PATH || process.cwd(),
+const agentOptions = (cwd: string) => ({
+  cwd,
   model: 'claude-sonnet-4-5' as const,
   tools: ['Bash', 'Read', 'Write', 'Glob', 'Grep'],
   allowedTools: ['Bash', 'Read', 'Write', 'Glob', 'Grep']
-};
+});
 
 (async () => {
-  // === PHASE 0: Repository State Validation (Issue #7) ===
-  let gitState: GitState | undefined;
-  console.log('[PLANNER] Validating repository state...');
-  const validation = ensureLatestMain(targetCwd);
-
-  if (!validation.success) {
-    console.error('[PLANNER] Git validation failed:', validation.message);
-    console.error('[PLANNER] ABORTING. Please resolve git state manually and re-run.');
-    process.exit(1);
+  // Step 1: Deterministic review pre-processing
+  let reviewResult: ReviewResult;
+  try {
+    reviewResult = handleReviewIssues();
+  } catch (error) {
+    console.error('[REVIEW] Error during review handling:', error);
+    // Fall through to PLANNING if review check fails
+    reviewResult = { outcome: 'no-review-issues' };
   }
 
-  gitState = validation.state!;
-  console.log('[PLANNER] ✅ Git validation passed. Proceeding with planning...');
+  // Step 2: Route based on review result — approved exits without LLM
+  if (reviewResult.outcome === 'approved') {
+    console.log(`[REVIEW] Issue #${reviewResult.issueNumber} approved and routed. Exiting.`);
+    return;
+  }
 
-  try {
-    // Step 1: Deterministic review pre-processing
-    let reviewResult: ReviewResult;
+  if (reviewResult.outcome === 'waiting-for-reply') {
+    console.log(`[REVIEW] Issue #${reviewResult.issueNumber} waiting for reply. Proceeding to PLANNING.`);
+  }
+
+  // If review feedback needs LLM — set up worktree and run
+  if (reviewResult.outcome === 'feedback') {
+    console.log(`[REVIEW] Invoking LLM for spec iteration on issue #${reviewResult.issueNumber}...`);
+    console.log('[PLANNER] Setting up isolated git worktree...');
+    const setup = setupAgentWorktree('planner', targetCwd);
+    if (!setup.success) {
+      console.error('[PLANNER] Worktree setup failed:', setup.message);
+      process.exit(1);
+    }
+    const worktreePath = setup.worktreePath!;
+    console.log('[PLANNER] ✅ Git worktree created. Running review agent in isolation...');
     try {
-      reviewResult = handleReviewIssues();
-    } catch (error) {
-      console.error('[REVIEW] Error during review handling:', error);
-      // Fall through to PLANNING if review check fails
-      reviewResult = { outcome: 'no-review-issues' };
-    }
-
-    // Step 2: Route based on review result
-    switch (reviewResult.outcome) {
-      case 'approved':
-        // Handled entirely in code — done
-        console.log(`[REVIEW] Issue #${reviewResult.issueNumber} approved and routed. Exiting.`);
-        return;
-
-      case 'feedback':
-        // Needs LLM to iterate on spec — skip PLANNING
-        console.log(`[REVIEW] Invoking LLM for spec iteration on issue #${reviewResult.issueNumber}...`);
-        await runAgent('Architect (Review)', buildReviewPrompt(reviewResult.issue), agentOptions);
-        return;
-
-      case 'waiting-for-reply':
-        // No actionable reviews — fall through to PLANNING
-        console.log(`[REVIEW] Issue #${reviewResult.issueNumber} waiting for reply. Proceeding to PLANNING.`);
-        break;
-
-      case 'no-review-issues':
-        // No review issues at all — fall through to PLANNING
-        break;
-    }
-
-    // Step 3: PLANNING flow (only reached when no reviews needed attention)
-    if (!hasTriagedIssues()) {
-      console.log('[PLANNING] No triaged issues found. Skipping LLM.');
-      return;
-    }
-    await runAgent('Architect (Planning)', PLANNING_PROMPT, agentOptions);
-  } finally {
-    // === CLEANUP: Restore original state (Issue #7) ===
-    if (gitState) {
-      console.log('[PLANNER] Restoring original git state...');
-      const restoration = restorePreviousState(gitState, targetCwd);
-      if (!restoration.success) {
-        console.warn('[PLANNER] Warning: Failed to restore git state:', restoration.message);
-        console.warn('[PLANNER] You may need to manually checkout your original branch and restore stashed changes.');
+      await runAgent('Architect (Review)', buildReviewPrompt(reviewResult.issue), agentOptions(worktreePath));
+    } finally {
+      console.log('[PLANNER] Cleaning up git worktree...');
+      const cleanup = cleanupAgentWorktree(worktreePath, targetCwd);
+      if (!cleanup.success) {
+        console.warn('[PLANNER] Warning: Failed to clean up worktree:', cleanup.message);
       }
+    }
+    return;
+  }
+
+  // Step 3: PLANNING flow (only reached when no reviews needed attention)
+  if (!hasTriagedIssues()) {
+    console.log('[PLANNING] No triaged issues found. Skipping LLM.');
+    return;
+  }
+
+  // Set up worktree only now — actual planning work needed
+  console.log('[PLANNER] Setting up isolated git worktree...');
+  const plannerSetup = setupAgentWorktree('planner', targetCwd);
+  if (!plannerSetup.success) {
+    console.error('[PLANNER] Worktree setup failed:', plannerSetup.message);
+    process.exit(1);
+  }
+  const plannerWorktreePath = plannerSetup.worktreePath!;
+  console.log('[PLANNER] ✅ Git worktree created. Running planning agent in isolation...');
+  try {
+    await runAgent('Architect (Planning)', PLANNING_PROMPT, agentOptions(plannerWorktreePath));
+  } finally {
+    console.log('[PLANNER] Cleaning up git worktree...');
+    const cleanup = cleanupAgentWorktree(plannerWorktreePath, targetCwd);
+    if (!cleanup.success) {
+      console.warn('[PLANNER] Warning: Failed to clean up worktree:', cleanup.message);
     }
   }
 })().catch(console.error);

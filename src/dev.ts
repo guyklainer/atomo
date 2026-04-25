@@ -9,9 +9,8 @@ import {
   hasHumanReplyAfterBot,
   hasNewReviewComments,
   extractIssueNumber,
-  ensureLatestMain,
-  restorePreviousState,
-  type GitState,
+  setupAgentWorktree,
+  cleanupAgentWorktree,
   type GitHubPR
 } from './github.js';
 
@@ -176,20 +175,6 @@ function pickHighestPriorityIssue(): GitHubIssue | null {
 }
 
 (async () => {
-  // === PHASE 0: Repository State Validation (Issue #7) ===
-  let gitState: GitState | undefined;
-  console.log('[DEV] Validating repository state...');
-  const validation = ensureLatestMain(targetCwd);
-
-  if (!validation.success) {
-    console.error('[DEV] Git validation failed:', validation.message);
-    console.error('[DEV] ABORTING. Please resolve git state manually and re-run.');
-    process.exit(1);
-  }
-
-  gitState = validation.state!;
-  console.log('[DEV] ✅ Git validation passed. Proceeding with dev workflow...');
-
   try {
     // Step 1: Deterministic PR review pre-processing
     let reviewResult: PRReviewResult;
@@ -218,7 +203,7 @@ function pickHighestPriorityIssue(): GitHubIssue | null {
         break;
     }
 
-    // Step 3: Pick highest priority issue and run LLM (existing logic)
+    // Step 3: Pick highest priority issue
     const targetIssue = pickHighestPriorityIssue();
 
     if (!targetIssue) {
@@ -263,21 +248,34 @@ AGENT-SPECIFIC RUNTIME VALUES:
 ${DEV_HINT ? `\n---\n\n## REVIEWER HINTS (supplemental guidance, not protocol rules)\n${DEV_HINT}` : ''}
 `;
 
-    await runAgent('AtomoDev', SYSTEM_PROMPT, {
-      cwd: targetCwd,
-      model: 'claude-sonnet-4-5',
-      tools: ['Bash', 'Read', 'Write', 'Glob', 'Grep'],
-      allowedTools: ['Bash', 'Read', 'Write', 'Glob', 'Grep']
-    });
-  } finally {
-    // === CLEANUP: Restore original state (Issue #7) ===
-    if (gitState) {
-      console.log('[DEV] Restoring original git state...');
-      const restoration = restorePreviousState(gitState, targetCwd);
-      if (!restoration.success) {
-        console.warn('[DEV] Warning: Failed to restore git state:', restoration.message);
-        console.warn('[DEV] You may need to manually checkout your original branch and restore stashed changes.');
+    // === WORKTREE: Only created when there is actual LLM work to do ===
+    console.log('[DEV] Setting up isolated git worktree...');
+    const setup = setupAgentWorktree('dev', targetCwd);
+
+    if (!setup.success) {
+      console.error('[DEV] Worktree setup failed:', setup.message);
+      console.error('[DEV] ABORTING.');
+      process.exit(1);
+    }
+
+    const worktreePath = setup.worktreePath!;
+    console.log('[DEV] ✅ Git worktree created. Running agent in isolation...');
+
+    try {
+      await runAgent('AtomoDev', SYSTEM_PROMPT, {
+        cwd: worktreePath,
+        model: 'claude-sonnet-4-5',
+        tools: ['Bash', 'Read', 'Write', 'Glob', 'Grep'],
+        allowedTools: ['Bash', 'Read', 'Write', 'Glob', 'Grep']
+      });
+    } finally {
+      console.log('[DEV] Cleaning up git worktree...');
+      const cleanup = cleanupAgentWorktree(worktreePath, targetCwd);
+      if (!cleanup.success) {
+        console.warn('[DEV] Warning: Failed to clean up worktree:', cleanup.message);
       }
     }
+  } catch (error) {
+    console.error('[DEV] Unexpected error:', error);
   }
 })().catch(console.error);
