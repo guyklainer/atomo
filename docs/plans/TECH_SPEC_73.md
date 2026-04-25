@@ -11,14 +11,14 @@
 
 ## Executive Summary
 
-Implement a Tech Lead agent that automatically reviews planner spec docs (`TECH_SPEC_*.md`) from both technical and product perspectives before human approval. The agent will identify gaps, missing use cases, drift from requirements, and suggest safer/easier implementation alternatives. All feedback will use a weighted scoring system (reusing the pattern from issue #71), and specs will be auto-approved if no critical items are found.
+Implement a Tech Lead agent that automatically reviews planner spec docs (`TECH_SPEC_*.md`) from both technical and product perspectives before human approval. The agent will identify gaps, missing use cases, drift from requirements, and suggest safer/easier implementation alternatives. All feedback will use a weighted scoring system (reusing the pattern from issue #71), and specs will be **automatically approved** and moved to `for-dev` when score >= 85% with no critical items.
 
 **Current State**: Human reviewers manually check specs for quality issues, leading to inconsistent reviews and delayed approvals.
 
 **Target State**: Automated first-pass review that catches 80%+ of common spec issues before human review, reducing review cycles by 50%.
 
 **Key Deliverables**:
-- `src/techlead.ts` - New agent runner
+- `src/techlead.ts` - New agent runner with dual trigger support (cron + label)
 - `protocols/techlead.md` - Weighted review criteria and scoring logic
 - `npm run techlead` command
 - Integration into planner review flow
@@ -41,13 +41,18 @@ Implement a Tech Lead agent that automatically reviews planner spec docs (`TECH_
 1. Review planner spec docs with **technical AND product perspective**
 2. Find: gaps, missing use cases, drifts, safer/easier alternatives
 3. Use **weighted feedback** (reuse pattern from #71)
-4. **Approve if no critical items** (auto-progression to for-dev)
+4. **Automatically approve** when score >= 85% with no critical items (move to `for-dev`)
 5. **Reusable weighting logic** for issue #71 (code reviewer agent)
 
 **Requirements from Issue #71** (Code Reviewer - for pattern reuse):
 - Scoring logic for every feedback item
 - Allow approval even without fixes if score below critical threshold
 - Verify: best practices, conventions, efficiency, separation of concerns, maintainability, security
+
+**Clarification Decisions** (from review feedback):
+1. **Auto-approval**: ✅ Automatically move specs to `for-dev` when score >= 85% (aggressive automation)
+2. **Review Timing**: ✅ Both (b) cron every 30 minutes AND (c) label-triggered via `needs-tech-lead`
+3. **Conflicting Feedback**: ✅ Manual reversion only (humans manually revert to `needs-review` if needed)
 
 **Strategic Value**:
 - **Faster review cycles**: Automated first-pass catches 80% of issues → fewer human iterations
@@ -120,7 +125,7 @@ All specs include:
 ## Files Affected
 
 ### New Files
-1. **src/techlead.ts** (NEW) - Tech Lead agent runner
+1. **src/techlead.ts** (NEW) - Tech Lead agent runner with dual trigger support
 2. **protocols/techlead.md** (NEW) - Weighted review criteria and approval protocol
 3. **techlead_context/thresholds.json** (NEW) - Scoring thresholds (reusable for #71)
 4. **techlead_context/last_review.json** (NEW) - Tracks last reviewed spec (cursor pattern from reviewer.ts)
@@ -129,7 +134,7 @@ All specs include:
 1. **package.json** (MODIFIED) - Add `"techlead": "tsx src/techlead.ts"` script
 
 ### No Changes Required
-- **src/planner.ts** - Tech Lead runs independently via cron (same pattern as reviewer.ts)
+- **src/planner.ts** - Tech Lead runs independently via cron or label trigger (same pattern as reviewer.ts)
 - **protocols/review.md** - Documents the new flow but doesn't change planner code
 
 ---
@@ -200,7 +205,7 @@ All specs include:
 
 **Version**: 1.0
 
-You are the Tech Lead agent. You review planner spec docs (`TECH_SPEC_*.md`) from technical and product perspectives, provide weighted feedback, and auto-approve if no critical items are found.
+You are the Tech Lead agent. You review planner spec docs (`TECH_SPEC_*.md`) from technical and product perspectives, provide weighted feedback, and automatically approve specs (move to `for-dev`) if score >= 85% with no critical items.
 
 ## Input
 
@@ -363,7 +368,7 @@ Post a GitHub comment on the issue:
 ## Recommended Action
 
 {If APPROVED}:
-✅ **Auto-approving spec.** Removing `needs-review` label and adding `for-dev` label.
+✅ **Auto-approving spec.** Removing `needs-review` (or `needs-tech-lead`) label and adding `for-dev` label.
 
 {If NEEDS REVISION}:
 ⚠️ **Spec requires revision.** Address the feedback above and re-post for review. Keeping `needs-review` label.
@@ -379,12 +384,13 @@ Post a GitHub comment on the issue:
 After posting the review comment:
 
 1. **If score >= 85 AND no critical items**:
-   - Execute: `gh issue edit {number} --remove-label needs-review --add-label for-dev`
+   - Execute: `gh issue edit {number} --remove-label needs-review --remove-label needs-tech-lead --add-label for-dev`
    - Post follow-up comment: `🤖 Spec approved by Tech Lead. Routing to Dev Agent.`
    - Add to `techlead_context/last_review.json`: `{ "spec_number": {number}, "score": {score}, "approved": true, "timestamp": "{now}" }`
 
 2. **If score < 85 OR any critical items exist**:
    - Keep `needs-review` label (do NOT remove)
+   - Remove `needs-tech-lead` label if present (review complete, awaiting revision)
    - Add to `techlead_context/last_review.json`: `{ "spec_number": {number}, "score": {score}, "approved": false, "timestamp": "{now}" }`
    - Wait for Architect to revise and re-post spec
 
@@ -396,19 +402,21 @@ After posting the review comment:
 
 ## Re-Review Detection
 
-On each run, query: `gh issue list --search "is:open label:needs-review" --limit 10`
+On each run, query for BOTH triggers:
+- `gh issue list --search "is:open label:needs-review" --limit 10`
+- `gh issue list --search "is:open label:needs-tech-lead" --limit 10`
 
 For each issue:
 1. Check if spec exists: `docs/plans/TECH_SPEC_{number}.md`
 2. Check `techlead_context/last_review.json` for `spec_number`
 3. If already reviewed: check if spec file has been modified since last review (compare file mtime vs timestamp)
-4. If modified: re-review; else skip
+4. If modified OR has `needs-tech-lead` label (explicit re-review request): re-review; else skip
 
 ---
 
 ## Exit Condition
 
-If no `needs-review` issues exist, output:
+If no `needs-review` or `needs-tech-lead` issues exist, output:
 `[Tech Lead] No specs awaiting review. Exiting.`
 ```
 
@@ -416,6 +424,8 @@ If no `needs-review` issues exist, output:
 - **Weighted criteria** - Mirrors confidence_gate.md proven pattern
 - **Severity multipliers** - Allows nuanced feedback (not just pass/fail)
 - **Auto-approval at 85%** - Same threshold as confidence gate (consistency)
+- **Automatic label management** - Removes friction, moves specs to `for-dev` without human intervention
+- **Dual trigger support** - Both cron-based (passive) and label-based (explicit request)
 - **Three-tier decision** - Approved (85+) / Needs Revision (70-84) / Rejected (<70)
 - **Re-review detection** - Avoids redundant reviews (same cursor pattern as reviewer.ts)
 
@@ -502,20 +512,25 @@ function hasSpecBeenModified(issueNumber: number, lastReviewTimestamp: string): 
   const targetCwd = process.env.TARGET_REPO_PATH || process.cwd();
   const ghTarget = (cmd: string) => gh(cmd, targetCwd);
   
-  // Query needs-review issues
-  const issues = ghTarget('issue list --search "is:open label:needs-review" --limit 10 --json number,title');
+  // Query BOTH needs-review AND needs-tech-lead issues (dual trigger)
+  const needsReviewIssues = ghTarget('issue list --search "is:open label:needs-review" --limit 10 --json number,title,labels');
+  const needsTechLeadIssues = ghTarget('issue list --search "is:open label:needs-tech-lead" --limit 10 --json number,title,labels');
   
-  if (!issues || issues.length === 0) {
+  // Merge and deduplicate
+  const allIssues = [...(needsReviewIssues || []), ...(needsTechLeadIssues || [])];
+  const uniqueIssues = Array.from(new Map(allIssues.map(i => [i.number, i])).values());
+  
+  if (uniqueIssues.length === 0) {
     console.log('[Tech Lead] No specs awaiting review. Exiting.');
     return;
   }
   
-  console.log(`[Tech Lead] Found ${issues.length} issue(s) with needs-review label.`);
+  console.log(`[Tech Lead] Found ${uniqueIssues.length} issue(s) with needs-review or needs-tech-lead label.`);
   
   const lastReview = loadLastReview();
   let reviewed = false;
   
-  for (const listIssue of issues) {
+  for (const listIssue of uniqueIssues) {
     const issueNumber = listIssue.number;
     const specPath = getSpecFilePath(issueNumber);
     
@@ -527,7 +542,11 @@ function hasSpecBeenModified(issueNumber: number, lastReviewTimestamp: string): 
     
     // Check if already reviewed
     const priorReview = lastReview.reviewed_specs.find(r => r.spec_number === issueNumber);
-    if (priorReview && !hasSpecBeenModified(issueNumber, priorReview.timestamp)) {
+    const hasNeedsTechLeadLabel = listIssue.labels.some((l: any) => l.name === 'needs-tech-lead');
+    const specModified = priorReview && hasSpecBeenModified(issueNumber, priorReview.timestamp);
+    
+    // Re-review if: (1) never reviewed, (2) spec modified, OR (3) explicit needs-tech-lead label
+    if (priorReview && !specModified && !hasNeedsTechLeadLabel) {
       console.log(`[Tech Lead] Issue #${issueNumber}: Already reviewed (no changes since ${priorReview.timestamp}), skipping.`);
       continue;
     }
@@ -596,6 +615,8 @@ ${techLeadProto}
 ```
 
 **Key Design Decisions**:
+- **Dual trigger support** - Queries both `needs-review` and `needs-tech-lead` labels
+- **Explicit re-review** - `needs-tech-lead` label forces re-review even if spec unchanged
 - **One spec per run** - Avoids context window bloat, matches reviewer.ts pattern
 - **Delta cursor** - Tracks reviewed specs to avoid redundant reviews
 - **File modification check** - Re-reviews if spec updated after prior review
@@ -639,7 +660,7 @@ echo '{"last_reviewed_at":"2026-04-25T00:00:00.000Z","reviewed_specs":[]}' > tec
 # 1. Create a test spec (or use existing needs-review issue)
 npm run plan
 
-# 2. Run tech lead agent
+# 2. Run tech lead agent (cron-based trigger)
 npm run techlead
 
 # 3. Verify output
@@ -647,12 +668,17 @@ npm run techlead
 # - Verify labels changed (needs-review → for-dev if approved)
 # - Check techlead_context/last_review.json updated
 
-# 4. Test re-review logic
+# 4. Test label-based trigger
+# - Add needs-tech-lead label to an issue: gh issue edit <number> --add-label needs-tech-lead
+# - Run: npm run techlead
+# - Verify agent reviews (even if already reviewed)
+
+# 5. Test re-review logic
 # - Manually edit TECH_SPEC_{number}.md (change a line)
 # - Run: npm run techlead
 # - Verify agent re-reviews (not skipped)
 
-# 5. Test approval threshold
+# 6. Test approval threshold
 # - Manually create a bad spec (missing edge cases, scope creep)
 # - Run: npm run techlead
 # - Verify score < 85, spec NOT approved
@@ -674,18 +700,18 @@ Once code reviewer (#71) is implemented, create shared test suite for weighted f
 
 **Scenario**: Tech lead approves (score 90), but human reviewer later posts critical feedback.
 
-**Current Behavior**: Spec moves to `for-dev` after tech lead approval. Human feedback is ignored.
-
-**Mitigation**: Document in protocols/review.md that humans can always override tech lead approval by:
+**Behavior**: Spec moves to `for-dev` after tech lead approval. Human must manually override by:
 1. Removing `for-dev` label
 2. Re-adding `needs-review` label
 3. Posting feedback (Architect will re-process per review.md FLOW B)
 
-**Future Enhancement** (not in scope): Add `tech-lead-approved` label instead of auto-moving to `for-dev`, requiring human final approval.
+**Rationale**: This is the chosen approach (per clarification question 3). Humans always have final authority but must take explicit action to override.
+
+**Documentation**: Add note in protocols/review.md that humans can override tech lead approval via manual label changes.
 
 ### 2. Spec File Missing
 
-**Scenario**: Issue has `needs-review` label but no `TECH_SPEC_{number}.md` file.
+**Scenario**: Issue has `needs-review` or `needs-tech-lead` label but no `TECH_SPEC_{number}.md` file.
 
 **Behavior**: Agent skips issue with log message (see src/techlead.ts line 80-83).
 
@@ -709,15 +735,21 @@ Once code reviewer (#71) is implemented, create shared test suite for weighted f
 
 **Future Enhancement**: Pre-check spec file size, auto-reject if >50KB.
 
-### 5. Multiple Concurrent Reviews
+### 5. Dual Trigger Deduplication
 
-**Scenario**: 10 issues have `needs-review` label, tech lead runs.
+**Scenario**: Issue has BOTH `needs-review` AND `needs-tech-lead` labels.
 
-**Behavior**: Reviews ONE spec per run (see src/techlead.ts line 95: `break` after first review).
+**Behavior**: Agent queries return same issue twice, but Map deduplication (line 82) ensures single review.
 
-**Rationale**: Same as reviewer.ts - avoid context window bloat, ensure high-quality feedback.
+**Rationale**: Efficient handling of overlapping triggers.
 
-**Cron Integration**: Run `npm run techlead` every 30 minutes → reviews 48 specs/day (more than sufficient).
+### 6. Cron + Label Trigger Race Condition
+
+**Scenario**: Cron runs at same time human adds `needs-tech-lead` label.
+
+**Behavior**: Both triggers fire, but delta cursor prevents duplicate review (checks last_review.json).
+
+**Rationale**: Idempotent design - safe to run multiple times.
 
 ---
 
@@ -728,10 +760,11 @@ Once code reviewer (#71) is implemented, create shared test suite for weighted f
 | 1 | Tech lead agent reviews specs from technical AND product perspectives | Check protocols/techlead.md criteria include both (scope, edge cases, safety = technical; product alignment = product) |
 | 2 | Finds gaps, missing use cases, drift, alternatives | Check protocols/techlead.md criteria cover these explicitly |
 | 3 | Uses weighted feedback system | Check techlead_context/thresholds.json defines weights, protocols/techlead.md uses scoring formula |
-| 4 | Auto-approves if no critical items | Check protocols/techlead.md decision logic: score >= 85 AND no critical → add for-dev label |
+| 4 | Auto-approves when score >= 85%, no critical items | Check protocols/techlead.md decision logic: score >= 85 AND no critical → add for-dev label automatically |
 | 5 | Reusable weighting logic for issue #71 | Check techlead_context/thresholds.json format is generic (weights, severity_multipliers), can be reused by code reviewer |
 | 6 | npm run techlead command exists | Check package.json scripts includes "techlead": "tsx src/techlead.ts" |
-| 7 | Integrates with planner review flow | Check src/techlead.ts queries needs-review label, posts GitHub comments, updates labels |
+| 7 | Dual trigger support (cron + label) | Check src/techlead.ts queries BOTH needs-review and needs-tech-lead labels |
+| 8 | Humans can manually override approvals | Check edge cases section documents manual label reversion process |
 
 ---
 
@@ -765,12 +798,14 @@ Once code reviewer (#71) is implemented, create shared test suite for weighted f
 
 ### Phase 2: Testing (30 min)
 - Manual test with real needs-review issue
+- Test label-based trigger (needs-tech-lead)
 - Verify approval flow
 - Verify re-review detection
 
 ### Phase 3: Documentation (15 min)
 - Update CLAUDE.md with `npm run techlead` command
 - Add comment to protocols/review.md mentioning optional tech lead gate
+- Document manual override process for human reviewers
 
 ### Phase 4: Cron Integration (15 min)
 - Add cron job: `*/30 * * * * cd /path/to/atomo && npm run techlead >> logs/techlead.log 2>&1`
