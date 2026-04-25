@@ -9,7 +9,10 @@
     "pm": "tsx src/pm.ts",
     "review": "tsx src/reviewer.ts",
     "init": "tsx scripts/init.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": "",
@@ -22,5 +25,10 @@
     "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   },
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.5",
+    "@vitest/ui": "^4.1.5",
+    "vitest": "^4.1.5"
+  }
 }

@@ -12,7 +12,7 @@ const atomoCwd = path.join(__dirname, '..');
 // Types
 // ─────────────────────────────────────────────────────────────────
 
-interface JsonlEvent {
+export interface JsonlEvent {
   ts: string;
   run_id: string;
   agent: string;
@@ -27,7 +27,7 @@ interface JsonlEvent {
   status?: 'ok' | 'error';
 }
 
-interface AgentStats {
+export interface AgentStats {
   agentName: string;
   runs: number;
   okRuns: number;
@@ -45,8 +45,7 @@ interface AgentStats {
 // JSONL delta reader
 // ─────────────────────────────────────────────────────────────────
 
-function readDeltaEvents(since: string): JsonlEvent[] {
-  const eventsDir = path.join(atomoCwd, 'logs', 'events');
+export function readDeltaEvents(eventsDir: string, since: string): JsonlEvent[] {
   if (!fs.existsSync(eventsDir)) return [];
 
   const sinceDate = new Date(since);
@@ -83,7 +82,7 @@ function readDeltaEvents(since: string): JsonlEvent[] {
 // Pre-aggregation (TypeScript math — reliable, no LLM for counting)
 // ─────────────────────────────────────────────────────────────────
 
-function aggregateByAgent(events: JsonlEvent[]): Record<string, AgentStats> {
+export function aggregateByAgent(events: JsonlEvent[]): Record<string, AgentStats> {
   const stats: Record<string, AgentStats> = {};
 
   for (const event of events) {
@@ -134,7 +133,7 @@ function aggregateByAgent(events: JsonlEvent[]): Record<string, AgentStats> {
   return stats;
 }
 
-function formatStats(stats: Record<string, AgentStats>): string {
+export function formatStats(stats: Record<string, AgentStats>): string {
   if (Object.keys(stats).length === 0) return '(no agent runs in delta)';
 
   return Object.values(stats).map(s => {
@@ -178,7 +177,8 @@ function formatStats(stats: Record<string, AgentStats>): string {
   const today = now.slice(0, 10);
 
   console.log(`[Reviewer] Reading delta since ${since}...`);
-  const events = readDeltaEvents(since);
+  const eventsDir = path.join(atomoCwd, 'logs', 'events');
+  const events = readDeltaEvents(eventsDir, since);
 
   if (events.length === 0) {
     console.log('[Reviewer] No delta since last run. Exiting.');

@@ -65,6 +65,33 @@ Atomo exposes dedicated run scripts aligned to individual workflow roles:
 | `npm run pm` | High-level management of issues and contextual coordination. |
 | `npm run init` | One-time CLI setup to define agent memory files. |
 
+
+## 🧪 Testing
+
+Atomo dogfoods TDD - all agents are tested according to `protocols/tdd.md`.
+
+### Running Tests
+
+```bash
+npm test                  # Run all tests
+npm run test:watch        # Run tests in watch mode
+npm run test:ui           # Open Vitest UI
+npm run test:coverage     # Generate coverage report
+```
+
+### Test Coverage
+
+Current coverage: **80%+** (target threshold defined in `vitest.config.ts`)
+
+[![Tests](https://github.com/guyklainer/atomo/actions/workflows/test.yml/badge.svg)](https://github.com/guyklainer/atomo/actions/workflows/test.yml)
+
+### Test Structure
+
+- `tests/reviewer.test.ts` - Reviewer agent test suite (JSONL parsing, aggregation, formatting)
+- More tests coming as we expand coverage to other agents
+
+See `CONTRIBUTING.md` for testing guidelines when adding new features.
+
 ## 📐 Internal Architecture
 
 Atomo relies strictly on **Persistent Memory** (`CLAUDE.md` and explicit `protocols/`) combined with **Auto-Memory** directories (`.claude/agent-memory/`) to establish ground rules and observe project-specific idiosyncrasies continually.
