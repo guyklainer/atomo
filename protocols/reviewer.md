@@ -191,7 +191,7 @@ Use the Edit tool to make the surgical change to the protocol file in `{atomoCwd
 
 ```bash
 git -C {atomoCwd} add protocols/{file}
-git -C {atomoCwd} commit -m "review: {one-line description of change}"
+git -C {atomoCwd} commit -m "review: {one-line description of change}" --author "Reviewer <reviewer@atomo.ai>"
 ```
 
 ### 6e. Open a PR on the Atomo repo
@@ -202,7 +202,8 @@ gh pr create \
   --head review/{YYYY-MM-DD} \
   --base main \
   --title "review: {signal} — {agent} ({value} vs threshold {threshold})" \
-  --body "## What triggered this
+  --body "🤖 **[Reviewer]:** 
+## What triggered this
 Signal: {signal} = {value} over {window_days}d (threshold: {threshold})
 Evidence: {2-3 sentences citing specific log/GitHub data}
 

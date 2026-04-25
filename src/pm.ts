@@ -402,7 +402,7 @@ PHASE 2: PORTFOLIO PRUNING (Every Run)
         - Else:
           \`\`\`bash
           gh issue close <number>
-          gh issue comment <number> -b "🤖 Closing: No longer aligns with current roadmap priorities. Revalidation showed relevance score: <score>/100. Can be reopened if context changes."
+          gh issue comment <number> -b "🤖 **[PM Agent]:** Closing: No longer aligns with current roadmap priorities. Revalidation showed relevance score: <score>/100. Can be reopened if context changes."
           \`\`\`
 
 2.5 Safety Rails:

@@ -93,7 +93,7 @@ function handlePRReviews(): PRReviewResult {
       console.log(`[PR REVIEW] PR #${pr.number}: APPROVED → Labeling merged-ready.`);
       ghTarget(`issue edit ${issueNumber} --remove-label pr-ready`);
       ghTarget(`issue edit ${issueNumber} --add-label merged-ready`);
-      ghTarget(`pr comment ${pr.number} --body "🤖 PR approved. Ready for merge."`);
+      ghTarget(`pr comment ${pr.number} --body "🤖 **[AtomoDev]:** PR approved. Ready for merge."`);
       return { outcome: 'approved', prNumber: pr.number, issueNumber };
     }
 
@@ -102,8 +102,8 @@ function handlePRReviews(): PRReviewResult {
       console.log(`[PR REVIEW] PR #${pr.number}: Changes requested → Re-routing to for-dev.`);
       ghTarget(`issue edit ${issueNumber} --remove-label pr-ready`);
       ghTarget(`issue edit ${issueNumber} --add-label for-dev`);
-      // Post on the PR (not issue) so the 🤖 timestamp marks these comments as "addressed"
-      ghTarget(`pr comment ${pr.number} --body "🤖 Review feedback detected. Re-routing to dev agent for revision."`);
+      // Post on the PR (not issue) so the timestamp marks these comments as "addressed"
+      ghTarget(`pr comment ${pr.number} --body "🤖 **[AtomoDev]:** Review feedback detected. Re-routing to dev agent for revision."`);
       return { outcome: 'changes-requested', prNumber: pr.number, issueNumber };
     }
 

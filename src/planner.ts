@@ -103,7 +103,7 @@ function handleReviewIssues(): ReviewResult {
       console.log(`[REVIEW] Issue #${issue.number}: APPROVED → Routing to Dev Agent.`);
       ghTarget(`issue edit ${issue.number} --remove-label needs-review`);
       ghTarget(`issue edit ${issue.number} --add-label for-dev`);
-      ghTarget(`issue comment ${issue.number} --body "🤖 Spec approved. Routing to Dev Agent."`);
+      ghTarget(`issue comment ${issue.number} --body "🤖 **[Architect]:** Spec approved. Routing to Dev Agent."`);
       return { outcome: 'approved', issueNumber: issue.number };
     }
 
@@ -138,7 +138,7 @@ A human has left feedback on the tech spec. Your job:
    - If not exists: Create branch, commit, push
 6. Post the updated spec as a GitHub comment in this format:
 
-   🤖 **Tech Spec Updated (Review Iteration)**
+   🤖 **[Architect] Tech Spec Updated (Review Iteration)**
 
    [Full updated TECH_SPEC_${issue.number}.md content]
 
@@ -253,7 +253,7 @@ Use the Bash tool to read the spec file and post it:
 1. Read the spec: cat docs/plans/TECH_SPEC_<number>.md
 2. Construct a comment in this format:
    ---
-   🤖 **Tech Spec Ready for Review**
+   🤖 **[Architect] Tech Spec Ready for Review**
 
    [Paste full TECH_SPEC_<number>.md content here]
 

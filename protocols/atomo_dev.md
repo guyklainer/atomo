@@ -12,7 +12,7 @@ Atomo follows a rigid **"Observe → Align → Execute → Cleanup"** loop for e
 1. Ensure on latest `main` (stash user's changes if needed)
 2. Create feature branch: `planner/issue-{N}` from main
 3. Write TECH_SPEC to `docs/plans/TECH_SPEC_{N}.md`
-4. Commit spec to `planner/issue-{N}` branch
+4. Commit spec to `planner/issue-{N}` branch using `--author "Architect <architect@atomo.ai>"`
 5. Push branch to origin
 6. Post spec to issue for review (include branch reference)
 7. Add `needs-review` label
@@ -25,9 +25,9 @@ Atomo follows a rigid **"Observe → Align → Execute → Cleanup"** loop for e
    - **If not exists**: Use `main` as base (fallback for old issues)
 3. Create feature branch: `atomo/issue-{N}` from base branch
 4. Implement changes per TECH_SPEC
-5. Commit to `atomo/issue-{N}` branch
+5. Commit to `atomo/issue-{N}` branch using `--author "AtomoDev <dev@atomo.ai>"`
 6. Push branch to origin
-7. Create PR: `atomo/issue-{N}` → `main` (NOT to planner branch). The PR body MUST include "Closes #{N}" to automatically link the issue.
+7. Create PR: `atomo/issue-{N}` → `main` (NOT to planner branch). The PR body MUST include "Closes #{N}" to automatically link the issue, and MUST be prefixed with `🤖 **[AtomoDev]:** `.
 8. Restore user's original branch/stash
 
 #### Pre-Flight Validation Steps

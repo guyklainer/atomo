@@ -91,7 +91,7 @@ async function reEvaluateNeedsInfo(): Promise<void> {
     } else if (pausingAgent === 'architect') {
       console.log(`[pre-processing] Issue #${issue.number}: Architect re-entry → routing back to Architect`);
       gh(`issue edit ${issue.number} --remove-label needs-info`, targetCwd);
-      gh(`issue comment ${issue.number} --body "🤖 Clarification received. Routing back to the Architect for planning."`, targetCwd);
+      gh(`issue comment ${issue.number} --body "🤖 **[Gatekeeper]:** Clarification received. Routing back to the Architect for planning."`, targetCwd);
 
     } else {
       console.warn(`[pre-processing] Issue #${issue.number}: Unexpected label state, skipping.`);
@@ -138,8 +138,8 @@ If score < 85 AND no prior clarification was provided:
 
 ### STEP 4: REPOSITORY ACTION (only if confidence >= 85, OR prior clarification was already provided)
 Use the Bash tool to interact with the repository:
-- If Bug (missingReproSteps=true) AND no prior clarification exists: Execute 'gh issue comment <number> --body "🤖 Automated Triage: Please provide reproduction steps so we can route this appropriately."' AND 'gh issue edit <number> --add-label needs-repro' (do NOT add 'triaged')
-- If Ambiguous AND no prior clarification exists: Execute 'gh issue comment <number> --body "🤖 Automated Triage: This issue lacks technical depth. Please clarify your request."' AND 'gh issue edit <number> --add-label needs-triage' (do NOT add 'triaged')
+- If Bug (missingReproSteps=true) AND no prior clarification exists: Execute 'gh issue comment <number> --body "🤖 **[Gatekeeper]** Automated Triage: Please provide reproduction steps so we can route this appropriately."' AND 'gh issue edit <number> --add-label needs-repro' (do NOT add 'triaged')
+- If Ambiguous AND no prior clarification exists: Execute 'gh issue comment <number> --body "🤖 **[Gatekeeper]** Automated Triage: This issue lacks technical depth. Please clarify your request."' AND 'gh issue edit <number> --add-label needs-triage' (do NOT add 'triaged')
 - If prior clarification was already provided: Do NOT post a clarifying comment. Classify using your best judgment based on the available context, and execute 'gh issue edit <number> --add-label <Classification-Label>,triaged'
 - If Bug (missingReproSteps=false) / Enhancement / Question: Execute 'gh issue edit <number> --add-label <Classification-Label>,triaged'
 
