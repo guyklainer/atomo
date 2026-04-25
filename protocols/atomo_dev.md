@@ -37,9 +37,10 @@ Atomo follows a rigid **"Observe → Align → Execute → Cleanup"** loop for e
    - Stash changes with message: `"Atomo agent: auto-stash before validation"`
    - Checkout to `main` (or base branch)
 3. **Sync with Remote**: Fetch and pull latest from `origin/main`
-4. **Failure Mode**: If validation fails (merge conflicts, network errors):
-   - Agent MUST abort immediately with error message
-   - Do NOT proceed with planning or implementation
+4. **Failure Mode**: Distinguish error category before aborting:
+   - **Structural errors** (merge conflicts, diverged history, missing branch): Abort immediately with a clear error message. Do NOT proceed.
+   - **Transient errors** (network timeout, SSH handshake failure, `git fetch` non-zero exit): Retry the failing command exactly once with a 5-second pause. If the retry fails, abort with error message.
+   - In all abort cases, restore the user's original branch/stash state before exiting.
 
 #### State Restoration (Post-Work Cleanup)
 
