@@ -50,14 +50,48 @@ async function main() {
 
   // 3. Check gh auth
   try {
-    const authStatus = runGh('auth status');
+    runGh('auth status');
     console.log('✅ GitHub CLI: Authenticated');
   } catch {
     console.error('❌ GitHub CLI: Not authenticated. Please run `gh auth login`.');
     process.exit(1);
   }
 
-  // 4. Check Environment Variables
+  // 4. Check pnpm (required for worktree dependency installation)
+  if (!checkCommand('pnpm')) {
+    console.error('❌ pnpm is not installed. Agents use pnpm to install dependencies in worktrees.');
+    console.error('   Install via: npm install -g pnpm  or  curl -fsSL https://get.pnpm.io/install.sh | sh -');
+    process.exit(1);
+  }
+  try {
+    const pnpmVersion = execSync('pnpm --version', { encoding: 'utf-8' }).trim();
+    console.log(`✅ pnpm: v${pnpmVersion}`);
+  } catch {
+    console.log('✅ pnpm: Installed');
+  }
+
+  // 5. Check git worktree support
+  try {
+    execSync('git worktree list', { stdio: 'ignore' });
+    console.log('✅ git worktree: Supported');
+  } catch {
+    console.error('❌ git worktree command failed. Please ensure git >= 2.5 is installed.');
+    process.exit(1);
+  }
+
+  // 6. Check parent directory is writable (worktrees are created as siblings of the repo)
+  const targetPath = process.env.TARGET_REPO_PATH || process.cwd();
+  const parentDir = path.resolve(targetPath, '..');
+  try {
+    fs.accessSync(parentDir, fs.constants.W_OK);
+    console.log(`✅ Parent directory writable: ${parentDir}`);
+  } catch {
+    console.error(`❌ Cannot write to parent directory: ${parentDir}`);
+    console.error('   Agents create git worktrees as siblings of the repo. This directory must be writable.');
+    process.exit(1);
+  }
+
+  // 7. Check Environment Variables
   if (!process.env.ANTHROPIC_API_KEY) {
     console.warn('⚠️  ANTHROPIC_API_KEY not found in .env or environment.');
     console.log('   Please add it to .env: ANTHROPIC_API_KEY=your_key_here');
@@ -65,8 +99,7 @@ async function main() {
     console.log('✅ ANTHROPIC_API_KEY: Found');
   }
 
-  // 5. Target Repository Setup
-  const targetPath = process.env.TARGET_REPO_PATH || process.cwd();
+  // 8. Target Repository Setup
   console.log(`📂 Target Repo Path: ${targetPath}`);
 
   if (!fs.existsSync(targetPath)) {
@@ -78,11 +111,11 @@ async function main() {
     const repoInfo = JSON.parse(runGh(`repo view --json name,owner,url`, targetPath));
     console.log(`✅ Connected to Repo: ${repoInfo.owner.login}/${repoInfo.name}`);
     
-    // 6. Check Labels
+    // 9. Check Labels
     console.log('\n🏷️  Checking GitHub Labels...');
     const labelsUrl = `repos/${repoInfo.owner.login}/${repoInfo.name}/labels`;
     const existingLabelsJson = runGh(`api ${labelsUrl} --paginate`, targetPath);
-    const existingLabels = JSON.parse(existingLabelsJson).map((l: any) => l.name.toLowerCase());
+    const existingLabels = JSON.parse(existingLabelsJson).map((l: { name: string }) => l.name.toLowerCase());
 
     for (const label of REQUIRED_LABELS) {
       if (existingLabels.includes(label.name.toLowerCase())) {
@@ -92,15 +125,15 @@ async function main() {
         try {
           runGh(`api -X POST ${labelsUrl} -f name="${label.name}" -f color="${label.color}" -f description="${label.description}"`, targetPath);
           console.log(`      ✅ Created.`);
-        } catch (err: any) {
-          console.error(`      ❌ Failed to create label ${label.name}: ${err.message}`);
+        } catch (err: unknown) {
+          console.error(`      ❌ Failed to create label ${label.name}: ${err instanceof Error ? err.message : String(err)}`);
         }
       }
     }
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.warn(`⚠️  Could not verify GitHub repo or labels at target path. Are you in a git repo with an upstream?`);
-    console.error(`   Error: ${err.message}`);
+    console.error(`   Error: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   console.log('\n✨ Environment check complete!');
@@ -110,3 +143,4 @@ main().catch(err => {
   console.error('💥 Unexpected error:', err);
   process.exit(1);
 });
+
