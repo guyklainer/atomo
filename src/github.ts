@@ -1,4 +1,6 @@
 import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 
 export interface GitHubIssue {
   number: number;
@@ -414,5 +416,80 @@ export function restorePreviousState(state: GitState, cwd?: string): {
       success: false,
       message: `Failed to restore git state: ${error.message}\nManual intervention may be required.`
     };
+  }
+}
+
+/**
+ * Setup a dedicated git worktree for an agent.
+ * Handles fast installation via Node package manager.
+ */
+export function setupAgentWorktree(agentName: string, cwd?: string): {
+  success: boolean;
+  message: string;
+  worktreePath?: string;
+} {
+  const targetCwd = cwd || process.env.TARGET_REPO_PATH || process.cwd();
+  
+  try {
+    console.log(`[Worktree] Fetching latest from origin...`);
+    execSync('git fetch origin', { cwd: targetCwd, stdio: 'pipe' });
+
+    let defaultBranch = 'main';
+    try {
+      defaultBranch = execSync('git symbolic-ref refs/remotes/origin/HEAD', {
+        encoding: 'utf-8', cwd: targetCwd
+      }).trim().replace('refs/remotes/origin/', '');
+    } catch {
+      try {
+        defaultBranch = execSync('git rev-parse --abbrev-ref origin/HEAD', {
+          encoding: 'utf-8', cwd: targetCwd
+        }).trim().replace('origin/', '');
+      } catch {
+        console.log('[Worktree] Could not determine default branch locally, defaulting to main.');
+      }
+    }
+
+    const runId = Math.random().toString(36).substring(2, 8);
+    const worktreeName = `atomo-${agentName}-${runId}`;
+    const worktreePath = path.resolve(targetCwd, '..', worktreeName);
+
+    console.log(`[Worktree] Creating worktree at ${worktreePath} based on origin/${defaultBranch}...`);
+    execSync(`git worktree add ${worktreePath} origin/${defaultBranch}`, {
+      cwd: targetCwd, stdio: 'inherit'
+    });
+
+    console.log(`[Worktree] Running dependency installation in worktree...`);
+    execSync(`npx pnpm install --prefer-offline`, {
+      cwd: worktreePath, stdio: 'inherit'
+    });
+
+    const sourceEnv = path.join(targetCwd, '.env');
+    const destEnv = path.join(worktreePath, '.env');
+    if (fs.existsSync(sourceEnv)) {
+       execSync(`cp ${sourceEnv} ${destEnv}`);
+    }
+
+    return { success: true, message: `Worktree created at ${worktreePath}`, worktreePath };
+  } catch (error: any) {
+    return { success: false, message: `Worktree setup failed: ${error.message}` };
+  }
+}
+
+/**
+ * Cleanup a previously created agent worktree
+ */
+export function cleanupAgentWorktree(worktreePath: string, cwd?: string): {
+  success: boolean;
+  message: string;
+} {
+  const targetCwd = cwd || process.env.TARGET_REPO_PATH || process.cwd();
+  try {
+    console.log(`[Worktree] Cleaning up worktree at ${worktreePath}...`);
+    execSync(`git worktree remove --force ${worktreePath}`, {
+      cwd: targetCwd, stdio: 'inherit'
+    });
+    return { success: true, message: 'Worktree removed successfully' };
+  } catch (error: any) {
+    return { success: false, message: `Worktree cleanup failed: ${error.message}` };
   }
 }
