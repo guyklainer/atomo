@@ -182,6 +182,51 @@ function hasUntriagedIssues(): boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// RATE GATE: Deterministic backlog check (runs before LLM)
+// ─────────────────────────────────────────────────────────────────
+
+const NEEDS_INFO_RATE_CEILING = 0.35;
+
+/**
+ * Returns true if the needs-info backlog rate exceeds the ceiling,
+ * meaning no new LLM classifications should be made this run.
+ *
+ * Rate = open needs-info count / open triaged count
+ */
+function isRateGated(): boolean {
+  const needsInfoIssues: GitHubIssue[] = gh(
+    'issue list --search "is:open label:needs-info" --limit 100 --json number',
+    targetCwd
+  );
+  const triagedIssues: GitHubIssue[] = gh(
+    'issue list --search "is:open label:triaged" --limit 100 --json number',
+    targetCwd
+  );
+
+  const needsInfoCount = needsInfoIssues?.length ?? 0;
+  const triagedCount = triagedIssues?.length ?? 0;
+
+  if (triagedCount === 0) {
+    console.log('[rate-gate] No triaged issues found, skipping rate check.');
+    return false;
+  }
+
+  const rate = needsInfoCount / triagedCount;
+  console.log(
+    `[rate-gate] needs_info_rate=${rate.toFixed(3)} (${needsInfoCount}/${triagedCount}), ceiling=${NEEDS_INFO_RATE_CEILING}`
+  );
+
+  if (rate > NEEDS_INFO_RATE_CEILING) {
+    console.log(
+      `[rate-gate] RATE_GATE TRIGGERED: needs_info_rate=${rate.toFixed(3)} exceeds ceiling=${NEEDS_INFO_RATE_CEILING} — skipping LLM classifications this run.`
+    );
+    return true;
+  }
+
+  return false;
+}
+
+// ─────────────────────────────────────────────────────────────────
 // MAIN
 // ─────────────────────────────────────────────────────────────────
 
@@ -190,6 +235,10 @@ function hasUntriagedIssues(): boolean {
     await reEvaluateNeedsInfo();
   } catch (error) {
     console.error('[pre-processing] Error during needs-info handling:', error);
+  }
+
+  if (isRateGated()) {
+    return;
   }
 
   if (!hasUntriagedIssues()) {

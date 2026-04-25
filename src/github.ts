@@ -459,8 +459,8 @@ export function setupAgentWorktree(agentName: string, cwd?: string): {
     });
 
     console.log(`[Worktree] Running dependency installation in worktree...`);
-    execSync(`npx pnpm install --prefer-offline`, {
-      cwd: worktreePath, stdio: 'inherit'
+    execSync(`pnpm install --prefer-offline`, {
+      cwd: worktreePath, stdio: 'pipe'
     });
 
     const sourceEnv = path.join(targetCwd, '.env');
