@@ -15,3 +15,8 @@ Classify issues using ONLY the following criteria:
 - Ambiguous: Comment asking for clarification AND label `needs-triage,triaged`
 
 **Label discipline — NEVER apply `needs-info` directly.** Use `needs-repro` (missing reproduction steps) or `needs-triage` (ambiguous content) to ensure the needs-info backlog stays below 35% of triaged issues. The generic `needs-info` label accumulates and obscures root-cause signals; always use the more specific label.
+
+**Stale needs-info lifecycle (run on every triage batch before classifying new issues):**
+1. Fetch: `gh issue list --search "is:open label:needs-info" --json number,updatedAt --limit 100`
+2. For each issue with `updatedAt` older than 30 days: close it with `gh issue close <N> --comment "Closing: no response in 30 days. Reopen or file a new issue with the requested context."` and remove the `needs-info` label.
+3. Before applying any `needs-*` label to a new issue, verify you cannot answer the clarifying question from the issue body, linked code, or recent PRs. Escalate to human only when genuinely blocked.
