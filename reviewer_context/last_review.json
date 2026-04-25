@@ -1,9 +1,8 @@
 {
-  "last_reviewed_at": "2026-04-25T07:17:16.707Z",
+  "last_reviewed_at": "2026-04-25T12:16:09.942Z",
   "cooldowns": {
-    "gatekeeper.needs_info_rate": "2026-05-09T07:17:16.707Z",
-    "atomodev.run_completion_rate": "2026-05-09T07:17:16.707Z",
-    "architect.first_pass_approval_rate": "2026-05-09T07:17:16.707Z",
-    "visionarypm.tokens_per_proposal": "2026-05-09T07:17:16.707Z"
+    "gatekeeper.needs_info_rate": "2026-05-09T12:16:09.942Z",
+    "architect.first_pass_approval_rate": "2026-05-09T12:16:09.942Z",
+    "visionarypm.tokens_per_proposal": "2026-05-09T12:16:09.942Z"
   }
 }

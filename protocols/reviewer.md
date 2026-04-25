@@ -26,6 +26,19 @@ Your prompt contains:
 
 ---
 
+## STEP 0: Startup Validation (ALWAYS — abort if any check fails)
+
+Before doing any analysis, verify that all required inputs are present and non-empty:
+
+1. **atomoCwd** — confirm the Atomo repo path was provided and the directory exists (`ls {atomoCwd}/reviewer_context/thresholds.json` must succeed).
+2. **Pre-aggregated stats** — confirm the stats block is non-empty and at least one agent has `runs > 0`. If all agents have `runs: 0`, emit `[Reviewer] No delta since last run. Exiting.` and stop.
+3. **Delta window** — confirm both `from` and `to` timestamps are present and parseable ISO-8601 strings.
+4. **Thresholds** — confirm the thresholds map is present and non-empty.
+
+If any check fails, emit `[Reviewer] ABORT | reason: <check that failed> | STATUS: ABORTED` and stop. Do NOT proceed to STEP 1 with incomplete inputs — a partial run produces a misleading report and inflates the `error_runs` count without producing an `ok_run`.
+
+---
+
 ## STEP 1: Parse Aggregated Stats
 
 Read the pre-aggregated stats from your prompt. They are provided in this format per agent:
