@@ -96,6 +96,21 @@ See `CONTRIBUTING.md` for testing guidelines when adding new features.
 
 Atomo relies strictly on **Persistent Memory** (`CLAUDE.md` and explicit `protocols/`) combined with **Auto-Memory** directories (`.claude/agent-memory/`) to establish ground rules and observe project-specific idiosyncrasies continually.
 
+## ☁️ Production Deployment
+
+Running Atomo reliably in production (scheduled, automated, or cloud-hosted)?
+
+See the **[Production Deployment Playbook](docs/DEPLOYMENT.md)** for complete guides on:
+
+- **GitHub Actions** (CI/CD automation - free for most projects)
+- **Docker** (containerized deployment - enterprise-ready)
+- **Self-hosted cron jobs** (VPS, dedicated servers)
+- **Cloud platforms** (Railway, Render, AWS Lambda, Fly.io)
+
+All patterns support both **individual agent scheduling** (triage/plan/dev on different schedules) and **full pipeline orchestration** (sequential execution).
+
+**Quick start**: For OSS projects, use the GitHub Actions pattern (10 min setup, zero cost).
+
 ## 🤝 Contributing
 
 We highly appreciate contributions! Atomo is built to be modular, and there is a lot of room to grow. 
