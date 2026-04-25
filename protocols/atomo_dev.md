@@ -27,7 +27,7 @@ Atomo follows a rigid **"Observe → Align → Execute → Cleanup"** loop for e
 4. Implement changes per TECH_SPEC
 5. Commit to `atomo/issue-{N}` branch
 6. Push branch to origin
-7. Create PR: `atomo/issue-{N}` → `main` (NOT to planner branch)
+7. Create PR: `atomo/issue-{N}` → `main` (NOT to planner branch). The PR body MUST include "Closes #{N}" to automatically link the issue.
 8. Restore user's original branch/stash
 
 #### Pre-Flight Validation Steps
@@ -37,9 +37,11 @@ Atomo follows a rigid **"Observe → Align → Execute → Cleanup"** loop for e
    - Stash changes with message: `"Atomo agent: auto-stash before validation"`
    - Checkout to `main` (or base branch)
 3. **Sync with Remote**: Fetch and pull latest from `origin/main`
-4. **Failure Mode**: If validation fails (merge conflicts, network errors):
-   - Agent MUST abort immediately with error message
-   - Do NOT proceed with planning or implementation
+4. **Failure Mode**: Distinguish error category before aborting:
+   - **Structural errors** (merge conflicts, diverged history, missing branch): Abort immediately with a clear error message. Do NOT proceed.
+   - **Transient errors** (network timeout, SSH handshake failure, `git fetch` non-zero exit): Retry the failing command exactly once with a 5-second pause. If the retry fails, abort with error message.
+   - In all abort cases, restore the user's original branch/stash state before exiting.
+   - **Required abort message format**: `[AtomoDev] ABORT | issue: #{N} | reason: <one-line cause> | category: structural|transient | STATUS: ABORTED`. This ensures the run is distinguishable from an unrecoverable crash in telemetry.
 
 #### State Restoration (Post-Work Cleanup)
 

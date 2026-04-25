@@ -10,6 +10,17 @@
 
 This protocol transforms the PM Agent from a "proposal generator" into a "strategic portfolio manager" with continuous self-improvement capabilities. It introduces quality gates, revalidation loops, portfolio pruning, and meta-learning.
 
+## Token Budget
+
+**Maximum tokens per run: 15,000.** The PM agent must load context files lazily:
+- On every run: read only `pm_context/domain.md` and `pm_context/capabilities.md`
+- In PHASE 0 (Self-Critique runs only): additionally read `pm_context/rejected_proposals.md`
+- In PHASE 1 (Revalidation): additionally read `pm_context/rejected_proposals.md` and `pm_context/revalidation_log.md`
+- In PHASE 2 (Pruning): no additional context files needed beyond GitHub API calls
+- In STEP 1-7 (Discovery): read `pm_context/discoveries.md`, `pm_context/external_research.md` and `pm_context/cross_session_ideas.md` only when generating proposals — not upfront
+
+Never read all pm_context files at the start of a run. Load each file only at the phase that requires it.
+
 ## Architecture
 
 The PM Agent now operates in an enhanced cycle with 4 new phases inserted into the existing workflow:
@@ -136,6 +147,20 @@ Every run, after revalidation, before generating new proposals.
   - Labels: `triaged`, `for-dev`, `needs-review`, `blocked`
   - Mentioned in current `ROADMAP.md`
   - Relevance score ≥ 40 (too engaged/relevant)
+
+---
+
+## PHASE 3.5: Exploration Budget Enforcement
+
+### Purpose
+Cap total token consumption during the discovery + ideation phases. A single PM run must not exceed 15,000 combined tokens (input + output).
+
+### Rules
+
+1. **Tool call budget**: Stop discovery after **25 total tool calls** across all phases (Bash, Read, Grep, Glob combined). At call #25, cease exploration and proceed to STEP 7 (Idea Generation) with data gathered so far.
+2. **Proposal target**: Generate **1–3 proposals** per run. Do NOT enumerate every possible improvement — depth over breadth.
+3. **Write-up length**: Each proposal must include ONLY the three rubric sections (Problem Clarity, Solution Specificity, Success Criteria). No supplemental market research sections, no rationale appendices.
+4. **Self-check before PHASE 4**: Confirm total tool calls are ≤ 25. If over budget, drop the lowest-priority proposals before proceeding to validation.
 
 ---
 

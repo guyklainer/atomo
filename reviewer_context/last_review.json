@@ -1,4 +1,8 @@
 {
-  "last_reviewed_at": "2026-01-01T00:00:00.000Z",
-  "cooldowns": {}
+  "last_reviewed_at": "2026-04-25T12:16:09.942Z",
+  "cooldowns": {
+    "gatekeeper.needs_info_rate": "2026-05-09T12:16:09.942Z",
+    "architect.first_pass_approval_rate": "2026-05-09T12:16:09.942Z",
+    "visionarypm.tokens_per_proposal": "2026-05-09T12:16:09.942Z"
+  }
 }

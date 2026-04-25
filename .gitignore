@@ -5,6 +5,7 @@ node_modules/
 .triage/
 *.log
 .worktrees/
+coverage/
 
 # Daily agent logs (large, generated)
 logs/

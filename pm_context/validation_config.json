@@ -1,0 +1,11 @@
+{
+  "validationWeights": {
+    "problemClarity": 35,
+    "solutionSpecificity": 35,
+    "successCriteria": 30
+  },
+  "threshold": 80,
+  "targetMaxOpenProposals": 8,
+  "lastUpdated": "2026-04-25",
+  "reason": "Initial default configuration"
+}
