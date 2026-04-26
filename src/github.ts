@@ -596,12 +596,18 @@ export function ensureLabelsAfterPlannerRun(issueNumber: number, cwd?: string): 
 
     const labels = issue.labels.map(l => l.name);
 
-    // If issue still has 'triaged' but not 'needs-review', the planner forgot
-    if (labels.includes('triaged') && !labels.includes('needs-review') && !labels.includes('for-dev')) {
+    // Only add needs-review if the issue hasn't already graduated past planning.
+    // Skip if it has any downstream label (for-dev, pr-ready, merged-ready, needs-info).
+    const graduatedLabels = ['for-dev', 'pr-ready', 'merged-ready', 'needs-info'];
+    const hasGraduated = graduatedLabels.some(l => labels.includes(l));
+
+    if (labels.includes('triaged') && !labels.includes('needs-review') && !hasGraduated) {
       console.log(`[Label Safety] FIXING: Adding missing 'needs-review' label to issue #${issueNumber}`);
       execSync(`gh issue edit ${issueNumber} --add-label needs-review`, {
         cwd: targetCwd, stdio: ['pipe', 'pipe', 'pipe']
       });
+    } else if (hasGraduated) {
+      console.log(`[Label Safety] Issue #${issueNumber} already graduated past planning. No action needed.`);
     }
   } catch (error: any) {
     console.error(`[Label Safety] Error during planner label enforcement for issue #${issueNumber}:`, error.message);
