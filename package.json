@@ -9,6 +9,7 @@
     "pm": "tsx src/pm.ts",
     "review": "tsx src/reviewer.ts",
     "release": "tsx src/release.ts",
+    "techlead": "tsx src/techlead.ts",
     "init": "tsx scripts/init.ts",
     "test": "vitest run",
     "test:watch": "vitest",
