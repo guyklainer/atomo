@@ -276,3 +276,64 @@ This file maintains the last 3 runs of proposals for deduplication.
 
 **Differentiators**: Local-first + production-grade (unique combo), cost-optimized with proof (telemetry), practice what we preach (tests)
 
+
+## Run 4 - 2026-04-26
+
+**Context**: High velocity shipping (7+ commits in 48h). Run #3 priorities partially implemented (tests ✅, PM validation ✅, git worktrees ✅, Reviewer agent ✅). NEW opportunity: Telemetry infrastructure exists but no user-facing dashboard. Enterprise blocker: No production deployment docs.
+
+**Strategic Focus**: Leverage & Deploy (2 hyper-specific proposals, 100% validation pass rate)
+
+### High Priority (2 proposals)
+
+- **HIGH**: User-Visible Cost Tracking & Savings Dashboard (#79)
+  - Leverage existing `readDeltaEvents()` in `src/reviewer.ts`
+  - Create `npm run cost-report` command (console table + JSON export)
+  - Show: Total cost, savings vs. naive approach (FLOW B advantage), per-agent breakdown
+  - **Rationale**: Telemetry exists but moat is invisible to users ("how much saved?")
+  - **Market Context**: Cost transparency differentiates vs. GitHub Copilot/Sweep (hidden costs)
+  - **Validation Score**: 100/100
+
+- **HIGH**: Production Deployment Playbook (#80)
+  - Create `docs/DEPLOYMENT.md` with 4 patterns: Cron, GitHub Actions, Docker, Cloud
+  - Examples: GitHub Actions YAML, Dockerfile, cron scripts, monitoring/alerting
+  - **Rationale**: All docs assume "dev laptop" - enterprise blocker ("how to run in prod?")
+  - **Market Context**: Self-hosting resurgence (April 2026) + table-stakes for enterprise
+  - **Validation Score**: 100/100
+
+**Quality Metrics**: 2 proposals, 100% pass rate (vs. 8 in Run #3, 20 in Run #2, 26 in Run #1)
+**Deduplication**: 50 closed pm-proposals checked, 0 open pm-proposals (clean slate)
+
+
+## Run 5 - 2026-04-26
+
+**Focus**: Automation & Enterprise Readiness (Prerequisite for Production Deployment)
+
+### Core Logic (1 proposal)
+
+- **CRITICAL**: Auto-Orchestrator - Hands-Free Issue → PR Pipeline (#82)
+  - **Priority**: CRITICAL (prerequisite for #80 Deployment Guide)
+  - **Problem**: Manual `npm run triage && plan && dev` workflow (4 min/issue wasted, error-prone, not scalable)
+  - **Quantified Impact**: 20 issues/week = 4 hours wasted → 0 hours with orchestrator
+  - **Concrete Scenario**: 5 issues overnight → wake up to 5 PRs (0 min intervention)
+  - **Solution**: `src/orchestrator.ts` (~250 LOC) - polling loop, auto-trigger agents on label state changes
+  - **Reuse Infrastructure**: `runAgent()` from `src/runner.ts`, worktree isolation (PR #74), Reviewer telemetry
+  - **Configuration**: `.env` vars (poll interval, auto-trigger flags, max concurrency), dry-run mode
+  - **Safety**: Check if agent running (prevent double-exec), graceful shutdown (Ctrl+C), max 3 concurrent
+  - **Success Signal**: 10 issues → 10 PRs with ZERO manual commands, 4 min/issue → 0 min/issue, 80%+ adoption
+  - **Market Context**: GitHub Copilot Workspace auto-chains, Sweep AI auto-executes, AutoGPT state persistence (Jan 2026)
+  - **Why Now**: #80 Deployment Guide documents "run in cron", but cron can't handle multi-step manual commands → orchestrator is **prerequisite**
+  - **Validation Score**: 100/100 (Problem: 35/35, Solution: 35/35, Criteria: 30/30)
+
+**Strategic Rationale**:
+Run #4 identified deployment guide as enterprise unlock. Run #5 identified **dependency**: Can't document production deployment without auto-triggering. Orchestrator is **foundation** for #80.
+
+**Competitive Positioning**:
+Closes last automation gap vs. GitHub Copilot Workspace (auto-chaining). Local-first + auto-orchestration = unique (competitors are cloud-only).
+
+**Dependency Chain**:
+1. Orchestrator (#82) → Enables production deployment
+2. Deployment Guide (#80) → Documents orchestrator + cron/CI
+3. Cost Dashboard (#79) → Proves ROI post-deployment
+
+---
+
