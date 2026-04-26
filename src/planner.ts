@@ -8,6 +8,7 @@ import {
   hasHumanReplyAfterBot,
   setupAgentWorktree,
   cleanupAgentWorktree,
+  ensureLabelsAfterPlannerRun,
   type GitHubIssue
 } from './github.js';
 
@@ -186,6 +187,10 @@ Your objective is to ingest fully-triaged GitHub issues and construct detailed p
 The REVIEW flow (checking needs-review issues) has already been handled before you run.
 Focus only on PLANNING below.
 
+**CRITICAL LABEL SAFETY RULE**: You may ONLY modify labels on the SINGLE issue you are actively planning.
+Do NOT add, remove, or "fix" labels on any other issue. If you notice label inconsistencies on
+other issues, IGNORE them — another system handles label enforcement.
+
 --- PLANNING: NEW TRIAGED ISSUES ---
 
 STEP 1: DATA INGESTION
@@ -312,12 +317,15 @@ ${PLANNER_HINT ? `\n---\n\n## REVIEWER HINTS (supplemental guidance, not protoco
 // Deterministic planning pre-check (runs before LLM)
 // ─────────────────────────────────────────────────────────────────
 
-function hasTriagedIssues(): boolean {
+function hasTriagedIssues(): { has: boolean; issueNumber: number | null } {
   console.log('[PLANNING] Checking for triaged issues...');
-  const issues = ghTarget(
+  const issues: Array<{ number: number }> = ghTarget(
     'issue list --search "is:open label:triaged -label:for-dev -label:needs-review -label:needs-info" --limit 1 --json number,title'
   );
-  return Array.isArray(issues) && issues.length > 0;
+  if (Array.isArray(issues) && issues.length > 0 && issues[0]) {
+    return { has: true, issueNumber: issues[0].number };
+  }
+  return { has: false, issueNumber: null };
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -376,7 +384,8 @@ const agentOptions = (cwd: string) => ({
   }
 
   // Step 3: PLANNING flow (only reached when no reviews needed attention)
-  if (!hasTriagedIssues()) {
+  const triageResult = hasTriagedIssues();
+  if (!triageResult.has) {
     console.log('[PLANNING] No triaged issues found. Skipping LLM.');
     return;
   }
@@ -393,6 +402,12 @@ const agentOptions = (cwd: string) => ({
   try {
     await runAgent('Architect (Planning)', PLANNING_PROMPT, agentOptions(plannerWorktreePath));
   } finally {
+    // Deterministic post-agent safety: enforce labels
+    if (triageResult.issueNumber) {
+      console.log('[PLANNER] Running deterministic label enforcement...');
+      ensureLabelsAfterPlannerRun(triageResult.issueNumber, targetCwd);
+    }
+
     console.log('[PLANNER] Cleaning up git worktree...');
     const cleanup = cleanupAgentWorktree(plannerWorktreePath, targetCwd);
     if (!cleanup.success) {

@@ -10,6 +10,9 @@ coverage/
 # Daily agent logs (large, generated)
 logs/
 
+# Agent runtime state
+.atomo-*-circuit.json
+
 # Generated reviewer reports
 reviewer_context/reports//coverage
 coverage/

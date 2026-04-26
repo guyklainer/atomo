@@ -11,12 +11,14 @@ import {
   extractIssueNumber,
   setupAgentWorktree,
   cleanupAgentWorktree,
+  ensureLabelsAfterDevRun,
   type GitHubPR
 } from './github.js';
 
 // Fix for __dirname in ESM environments run via tsx
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const atomoCwd = path.join(__dirname, '..');
 
 // ─────────────────────────────────────────────────────────────────
 // PR REVIEW: Deterministic pre-processing (runs before LLM)
@@ -150,16 +152,79 @@ function parsePriorityScore(body: string): number {
   return match ? parseFloat(match[1]!) : 0;
 }
 
+// ─────────────────────────────────────────────────────────────────
+// CIRCUIT BREAKER: Prevent re-working the same issue in a loop
+// ─────────────────────────────────────────────────────────────────
+
+const CIRCUIT_BREAKER_PATH = path.join(atomoCwd, '.atomo-dev-circuit.json');
+const CIRCUIT_BREAKER_MAX_AGE_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+interface CircuitEntry {
+  issueNumber: number;
+  timestamp: number;
+}
+
+function readCircuitBreaker(): CircuitEntry[] {
+  try {
+    if (!fs.existsSync(CIRCUIT_BREAKER_PATH)) return [];
+    const entries: CircuitEntry[] = JSON.parse(fs.readFileSync(CIRCUIT_BREAKER_PATH, 'utf-8'));
+    const cutoff = Date.now() - CIRCUIT_BREAKER_MAX_AGE_MS;
+    return entries.filter(e => e.timestamp > cutoff);
+  } catch {
+    return [];
+  }
+}
+
+function recordCircuitBreaker(issueNumber: number): void {
+  const entries = readCircuitBreaker();
+  entries.push({ issueNumber, timestamp: Date.now() });
+  fs.writeFileSync(CIRCUIT_BREAKER_PATH, JSON.stringify(entries, null, 2));
+}
+
+function isCircuitBroken(issueNumber: number): boolean {
+  const entries = readCircuitBreaker();
+  return entries.some(e => e.issueNumber === issueNumber);
+}
+
+function clearCircuitBreaker(issueNumber: number): void {
+  const entries = readCircuitBreaker().filter(e => e.issueNumber !== issueNumber);
+  fs.writeFileSync(CIRCUIT_BREAKER_PATH, JSON.stringify(entries, null, 2));
+}
+
 function pickHighestPriorityIssue(): GitHubIssue | null {
   try {
     const raw = execSync(
       'gh issue list --search "is:open label:for-dev -label:pr-ready -label:blocked" --limit 50 --json number,title,body',
       { encoding: 'utf-8', cwd: targetCwd }
     );
-    const issues: GitHubIssue[] = JSON.parse(raw).map((i: GitHubIssue) => ({
+    let issues: GitHubIssue[] = JSON.parse(raw).map((i: GitHubIssue) => ({
       ...i,
       priority: parsePriorityScore(i.body)
     }));
+
+    if (issues.length === 0) return null;
+
+    // PR-exists guard: filter out issues that already have an open PR
+    try {
+      const openPRs: Array<{ headRefName: string }> = ghTarget(
+        'pr list --state open --json headRefName'
+      );
+      const prBranches = new Set(openPRs.map(pr => pr.headRefName));
+      const before = issues.length;
+      issues = issues.filter(i => !prBranches.has(`atomo/issue-${i.number}`));
+      if (issues.length < before) {
+        console.log(`[PR Guard] Filtered ${before - issues.length} issue(s) that already have an open PR.`);
+      }
+    } catch (error) {
+      console.warn('[PR Guard] Could not check open PRs, skipping guard:', error);
+    }
+
+    // Circuit breaker guard: filter out recently-worked issues
+    const beforeCircuit = issues.length;
+    issues = issues.filter(i => !isCircuitBroken(i.number));
+    if (issues.length < beforeCircuit) {
+      console.log(`[Circuit Breaker] Filtered ${beforeCircuit - issues.length} issue(s) worked in the last 4 hours.`);
+    }
 
     if (issues.length === 0 || !issues[0]) return null;
 
@@ -192,6 +257,8 @@ function pickHighestPriorityIssue(): GitHubIssue | null {
         return;
 
       case 'changes-requested':
+        // Clear circuit breaker so the issue can be re-worked immediately on next run
+        clearCircuitBreaker(reviewResult.issueNumber);
         console.log(`[PR REVIEW] PR #${reviewResult.prNumber} needs changes (Issue #${reviewResult.issueNumber}). Re-labeled for-dev. Exiting.`);
         return;
 
@@ -215,6 +282,10 @@ function pickHighestPriorityIssue(): GitHubIssue | null {
 You are the autonomous Atomo Dev Execution Agent.
 Your objective is to implement the specific GitHub Issue #${targetIssue.number}: "${targetIssue.title}".
 Do NOT re-query for another issue. Your task is already assigned.
+
+**CRITICAL LABEL SAFETY RULE**: You may ONLY modify labels on Issue #${targetIssue.number}.
+Do NOT add, remove, or "fix" labels on any other issue. If you notice label inconsistencies on
+other issues, IGNORE them — another system handles label enforcement deterministically.
 
 You MUST strictly follow the 'Atomo: The Methodical Dev Protocol' loop defined below.
 
@@ -269,6 +340,13 @@ ${DEV_HINT ? `\n---\n\n## REVIEWER HINTS (supplemental guidance, not protocol ru
         allowedTools: ['Bash', 'Read', 'Write', 'Glob', 'Grep']
       });
     } finally {
+      // Deterministic post-agent safety: enforce labels regardless of what LLM did
+      console.log('[DEV] Running deterministic label enforcement...');
+      ensureLabelsAfterDevRun(targetIssue.number, targetCwd);
+
+      // Record this issue in the circuit breaker
+      recordCircuitBreaker(targetIssue.number);
+
       console.log('[DEV] Cleaning up git worktree...');
       const cleanup = cleanupAgentWorktree(worktreePath, targetCwd);
       if (!cleanup.success) {

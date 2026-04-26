@@ -493,3 +493,117 @@ export function cleanupAgentWorktree(worktreePath: string, cwd?: string): {
     return { success: false, message: `Worktree cleanup failed: ${error.message}` };
   }
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Deterministic Label Enforcement (post-agent safety net)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Deterministic post-agent label enforcement for dev runs.
+ * Checks if the agent created a PR for the issue and ensures labels are correct.
+ * This runs AFTER the LLM finishes, so it catches any label the agent forgot.
+ *
+ * If a PR with branch `atomo/issue-{N}` exists:
+ *   → Ensure issue has `pr-ready` label
+ *   → Remove `for-dev` label
+ *
+ * If no PR exists:
+ *   → Leave labels as-is (agent may have failed or aborted)
+ */
+export function ensureLabelsAfterDevRun(issueNumber: number, cwd?: string): void {
+  const targetCwd = cwd || process.env.TARGET_REPO_PATH || process.cwd();
+  const branchName = `atomo/issue-${issueNumber}`;
+
+  try {
+    // Check if an open PR exists for this issue's branch
+    const prs: Array<{ number: number; headRefName: string }> = JSON.parse(
+      execSync(
+        `gh pr list --state open --head "${branchName}" --json number,headRefName`,
+        { encoding: 'utf-8', cwd: targetCwd, stdio: ['pipe', 'pipe', 'pipe'] }
+      )
+    );
+
+    if (prs.length === 0) {
+      console.log(`[Label Safety] No open PR found for ${branchName}. Skipping label enforcement.`);
+      return;
+    }
+
+    console.log(`[Label Safety] PR #${prs[0]!.number} found for ${branchName}. Enforcing labels...`);
+
+    // Get current issue labels
+    const issue: { labels: Array<{ name: string }> } = JSON.parse(
+      execSync(
+        `gh issue view ${issueNumber} --json labels`,
+        { encoding: 'utf-8', cwd: targetCwd, stdio: ['pipe', 'pipe', 'pipe'] }
+      )
+    );
+
+    const labels = issue.labels.map(l => l.name);
+    let fixed = false;
+
+    // Ensure pr-ready is present
+    if (!labels.includes('pr-ready')) {
+      console.log(`[Label Safety] FIXING: Adding missing 'pr-ready' label to issue #${issueNumber}`);
+      execSync(`gh issue edit ${issueNumber} --add-label pr-ready`, {
+        cwd: targetCwd, stdio: ['pipe', 'pipe', 'pipe']
+      });
+      fixed = true;
+    }
+
+    // Ensure for-dev is removed (pr-ready and for-dev are mutually exclusive)
+    if (labels.includes('for-dev')) {
+      console.log(`[Label Safety] FIXING: Removing stale 'for-dev' label from issue #${issueNumber}`);
+      execSync(`gh issue edit ${issueNumber} --remove-label for-dev`, {
+        cwd: targetCwd, stdio: ['pipe', 'pipe', 'pipe']
+      });
+      fixed = true;
+    }
+
+    if (!fixed) {
+      console.log(`[Label Safety] Labels already correct for issue #${issueNumber}. No fixes needed.`);
+    }
+  } catch (error: any) {
+    console.error(`[Label Safety] Error during label enforcement for issue #${issueNumber}:`, error.message);
+    // Non-fatal: don't crash the agent over a label check
+  }
+}
+
+/**
+ * Deterministic post-agent label enforcement for planner runs.
+ * Checks if the planner posted a spec comment and ensures the issue has `needs-review`.
+ */
+export function ensureLabelsAfterPlannerRun(issueNumber: number, cwd?: string): void {
+  const targetCwd = cwd || process.env.TARGET_REPO_PATH || process.cwd();
+  const branchName = `planner/issue-${issueNumber}`;
+
+  try {
+    // Check if a planner branch was pushed (indicates spec was written)
+    const branchExists = remoteBranchExists(branchName, targetCwd);
+
+    if (!branchExists) {
+      console.log(`[Label Safety] No planner branch found for ${branchName}. Skipping label enforcement.`);
+      return;
+    }
+
+    console.log(`[Label Safety] Planner branch ${branchName} exists. Enforcing labels...`);
+
+    const issue: { labels: Array<{ name: string }> } = JSON.parse(
+      execSync(
+        `gh issue view ${issueNumber} --json labels`,
+        { encoding: 'utf-8', cwd: targetCwd, stdio: ['pipe', 'pipe', 'pipe'] }
+      )
+    );
+
+    const labels = issue.labels.map(l => l.name);
+
+    // If issue still has 'triaged' but not 'needs-review', the planner forgot
+    if (labels.includes('triaged') && !labels.includes('needs-review') && !labels.includes('for-dev')) {
+      console.log(`[Label Safety] FIXING: Adding missing 'needs-review' label to issue #${issueNumber}`);
+      execSync(`gh issue edit ${issueNumber} --add-label needs-review`, {
+        cwd: targetCwd, stdio: ['pipe', 'pipe', 'pipe']
+      });
+    }
+  } catch (error: any) {
+    console.error(`[Label Safety] Error during planner label enforcement for issue #${issueNumber}:`, error.message);
+  }
+}
