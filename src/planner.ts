@@ -194,7 +194,7 @@ other issues, IGNORE them — another system handles label enforcement.
 --- PLANNING: NEW TRIAGED ISSUES ---
 
 STEP 1: DATA INGESTION
-Query: gh issue list --search "is:open label:triaged -label:for-dev -label:needs-review -label:needs-info" --limit 1 --json number,title,body
+Query: gh issue list --search "is:open label:triaged -label:for-dev -label:needs-review -label:needs-info -label:pr-ready -label:merged-ready" --limit 1 --json number,title,body
 
 If an issue exists:
   1. Fetch full detail: gh issue view <number> --json number,title,body,labels,comments
@@ -320,7 +320,7 @@ ${PLANNER_HINT ? `\n---\n\n## REVIEWER HINTS (supplemental guidance, not protoco
 function hasTriagedIssues(): { has: boolean; issueNumber: number | null } {
   console.log('[PLANNING] Checking for triaged issues...');
   const issues: Array<{ number: number }> = ghTarget(
-    'issue list --search "is:open label:triaged -label:for-dev -label:needs-review -label:needs-info" --limit 1 --json number,title'
+    'issue list --search "is:open label:triaged -label:for-dev -label:needs-review -label:needs-info -label:pr-ready -label:merged-ready" --limit 1 --json number,title'
   );
   if (Array.isArray(issues) && issues.length > 0 && issues[0]) {
     return { has: true, issueNumber: issues[0].number };
